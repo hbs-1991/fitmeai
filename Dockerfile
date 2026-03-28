@@ -27,6 +27,10 @@ RUN pip install --no-cache-dir \
 # Create memory directory
 RUN mkdir -p /app/memory
 
+# Create non-root user (Claude CLI refuses bypassPermissions as root)
+RUN useradd -m -s /bin/bash botuser && chown -R botuser:botuser /app
+USER botuser
+
 ENV PYTHONPATH=/app/src:/app
 ENV PYTHONUNBUFFERED=1
 
