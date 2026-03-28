@@ -14,8 +14,12 @@ def main() -> None:
     config = Config()
     bot, dp = create_bot(config)
 
+    async def start():
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot)
+
     logging.info("Starting Nutrition Agent bot...")
-    asyncio.run(dp.start_polling(bot))
+    asyncio.run(start())
 
 
 if __name__ == "__main__":
