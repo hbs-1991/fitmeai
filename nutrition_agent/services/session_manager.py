@@ -29,7 +29,12 @@ class SessionManager:
 
     def _load(self) -> None:
         if self._path.exists():
-            self._sessions = json.loads(self._path.read_text(encoding="utf-8"))
+            text = self._path.read_text(encoding="utf-8").strip()
+            if text:
+                try:
+                    self._sessions = json.loads(text)
+                except json.JSONDecodeError:
+                    self._sessions = {}
 
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
