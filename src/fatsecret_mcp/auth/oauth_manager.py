@@ -1,5 +1,6 @@
 """OAuth 1.0 three-legged authentication manager for FatSecret API."""
 
+import os
 import keyring
 import secrets
 import webbrowser
@@ -39,7 +40,17 @@ class OAuthManager:
             raise TokenError(f"Failed to store tokens: {e}")
 
     def get_stored_tokens(self) -> Tuple[Optional[str], Optional[str]]:
-        """Retrieve stored OAuth 1.0 access token + secret."""
+        """Retrieve stored OAuth 1.0 access token + secret.
+
+        Checks env vars first (for Docker), then falls back to keyring.
+        """
+        # Env var override (for Docker / headless)
+        token = os.environ.get("FATSECRET_ACCESS_TOKEN")
+        secret = os.environ.get("FATSECRET_ACCESS_SECRET")
+        if token and secret:
+            return token, secret
+
+        # Keyring fallback (local dev)
         try:
             token = keyring.get_password(self.SERVICE_NAME, self.KEY_ACCESS_TOKEN)
             secret = keyring.get_password(self.SERVICE_NAME, self.KEY_ACCESS_SECRET)

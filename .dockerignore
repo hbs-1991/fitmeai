@@ -1,0 +1,15 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+*.egg-info
+.env
+.env.local
+venv/
+env/
+sessions.json
+tmp/
+docs/
+examples/
+claude_agent_sdk_guides/
+*.log

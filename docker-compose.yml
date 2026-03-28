@@ -1,0 +1,11 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      # Persist memory and sessions across restarts
+      - ./memory:/app/memory
+      - ./sessions.json:/app/sessions.json
+      # Mount about_me.md so user can edit without rebuild
+      - ./about_me.md:/app/about_me.md
+    restart: unless-stopped
