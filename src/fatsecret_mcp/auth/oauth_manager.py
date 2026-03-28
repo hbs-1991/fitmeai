@@ -138,7 +138,14 @@ class _OAuthCallbackHandler(BaseHTTPRequestHandler):
     error: Optional[str] = None
 
     def do_GET(self) -> None:
-        qs = parse_qs(urlparse(self.path).query)
+        # Ignore favicon and other non-callback requests
+        parsed = urlparse(self.path)
+        if parsed.path != "/callback":
+            self.send_response(204)
+            self.end_headers()
+            return
+
+        qs = parse_qs(parsed.query)
         _OAuthCallbackHandler.oauth_token = qs.get("oauth_token", [None])[0]
         _OAuthCallbackHandler.oauth_verifier = qs.get("oauth_verifier", [None])[0]
 
@@ -205,7 +212,12 @@ def run_oauth_flow() -> bool:
 
     httpd = HTTPServer(("", 8080), _OAuthCallbackHandler)
     httpd.timeout = 300  # 5 minutes
-    httpd.handle_request()
+
+    # Handle requests until we get a verifier or an error or timeout
+    while _OAuthCallbackHandler.oauth_verifier is None and _OAuthCallbackHandler.error is None:
+        httpd.handle_request()
+
+    httpd.server_close()
 
     verifier = _OAuthCallbackHandler.oauth_verifier
     if not verifier:
