@@ -7,21 +7,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install build tools first
-RUN pip install --no-cache-dir setuptools wheel
-
-# Copy and install dependencies
-COPY pyproject.toml ./
-COPY src/ ./src/
-COPY main.py main_noauth.py ./
-
-# Install the project
-RUN pip install --no-cache-dir ".[dev]"
-
-# Copy remaining files
+# Copy everything
 COPY . .
+
+# Install dependencies directly (avoid editable install build isolation issues)
+RUN pip install --no-cache-dir \
+    "fastmcp>=3.0.0b1" \
+    "requests>=2.31.0" \
+    "requests-oauthlib>=1.3.0" \
+    "pydantic>=2.5.0" \
+    "python-dotenv>=1.0.0" \
+    "keyring>=24.0.0" \
+    "claude-agent-sdk>=0.1.51" \
+    "aiogram>=3.26.0" \
+    "openai>=1.0.0" \
+    "pyzbar>=0.1.9" \
+    "Pillow>=10.0.0"
 
 # Create memory directory
 RUN mkdir -p /app/memory
+
+ENV PYTHONPATH=/app/src:/app
+ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "run_bot.py"]
