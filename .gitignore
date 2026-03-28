@@ -53,3 +53,7 @@ Thumbs.db
 
 # MCP specific
 mcp_config.json
+
+# Nutrition agent
+sessions.json
+tmp/
