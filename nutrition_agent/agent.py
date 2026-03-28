@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -66,6 +67,7 @@ class NutritionAgent:
             ],
             max_turns=20,
             max_budget_usd=1.0,
+            debug_stderr=sys.stderr,
             hooks={
                 "UserPromptSubmit": [
                     HookMatcher(matcher=".*", hooks=[self._load_memory])
