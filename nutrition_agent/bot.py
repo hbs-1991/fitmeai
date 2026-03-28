@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import Message
 
 from nutrition_agent.agent import NutritionAgent
 from nutrition_agent.config import Config, PROJECT_DIR
@@ -17,12 +18,28 @@ from nutrition_agent.services.session_manager import SessionManager
 logger = logging.getLogger(__name__)
 
 
+class OwnerCheckMiddleware(BaseMiddleware):
+    """Reject messages from non-owner users when OWNER_CHAT_ID is set."""
+
+    def __init__(self, owner_chat_id: int | None) -> None:
+        self._owner_chat_id = owner_chat_id
+
+    async def __call__(self, handler, event: Message, data: dict):
+        if self._owner_chat_id and event.chat.id != self._owner_chat_id:
+            logger.warning("Rejected message from unauthorized chat_id=%d", event.chat.id)
+            return
+        return await handler(event, data)
+
+
 def create_bot(config: Config) -> tuple[Bot, Dispatcher]:
     bot = Bot(
         token=config.telegram_bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
     )
     dp = Dispatcher()
+
+    # Owner access control
+    dp.message.middleware(OwnerCheckMiddleware(config.owner_chat_id))
 
     # Services
     sessions = SessionManager(str(PROJECT_DIR / "sessions.json"))
@@ -35,6 +52,7 @@ def create_bot(config: Config) -> tuple[Bot, Dispatcher]:
     )
 
     # Inject dependencies into handlers
+    commands.setup(sessions)
     text.setup(agent, sessions)
     voice.setup(agent, sessions)
     photo.setup(agent, sessions)

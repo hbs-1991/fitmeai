@@ -53,6 +53,7 @@ class NutritionAgent:
                 "mcp__fatsecret__*",
             ],
             max_turns=20,
+            max_budget_usd=1.0,
             hooks={
                 "UserPromptSubmit": [
                     HookMatcher(matcher=".*", hooks=[self._load_memory])

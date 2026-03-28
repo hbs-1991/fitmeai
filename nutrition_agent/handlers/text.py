@@ -6,6 +6,7 @@ from aiogram import Bot, Router
 from aiogram.types import Message
 
 from nutrition_agent.agent import NutritionAgent
+from nutrition_agent.handlers.utils import send_long_text
 from nutrition_agent.services.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,4 @@ async def handle_text(message: Message) -> None:
         if text_chunk:
             accumulated += text_chunk
 
-    if accumulated:
-        await message.answer(accumulated[:4096])
-    else:
-        await message.answer("Не удалось получить ответ. Попробуй ещё раз.")
+    await send_long_text(message, accumulated)

@@ -8,6 +8,7 @@ from aiogram import Bot, Router
 from aiogram.types import Message
 
 from nutrition_agent.agent import NutritionAgent
+from nutrition_agent.handlers.utils import send_long_text
 from nutrition_agent.services.barcode import decode_barcode
 from nutrition_agent.services.session_manager import SessionManager
 
@@ -72,8 +73,7 @@ async def handle_photo(message: Message) -> None:
             if text_chunk:
                 accumulated += text_chunk
 
-        if accumulated:
-            await message.answer(accumulated[:4096])
+        await send_long_text(message, accumulated)
 
     finally:
         Path(tmp_path).unlink(missing_ok=True)

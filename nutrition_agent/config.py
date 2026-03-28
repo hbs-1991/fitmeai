@@ -27,6 +27,11 @@ class Config:
                 "FATSECRET_CLIENT_ID and FATSECRET_CLIENT_SECRET are required"
             )
 
+        self.owner_chat_id: int | None = None
+        raw_owner = os.environ.get("OWNER_CHAT_ID")
+        if raw_owner:
+            self.owner_chat_id = int(raw_owner)
+
         self.mcp_server_command = "python"
         self.mcp_server_args = ["main.py"]
         self.mcp_server_cwd = str(PROJECT_DIR)

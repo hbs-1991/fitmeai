@@ -5,19 +5,10 @@ from nutrition_agent.services.whisper import transcribe_voice
 
 
 @pytest.mark.asyncio
-async def test_transcribe_voice_returns_text(tmp_path):
-    # Create a dummy audio file so open() succeeds
-    dummy_file = tmp_path / "voice.ogg"
-    dummy_file.write_bytes(b"fake audio data")
-
-    mock_response = MagicMock()
-    mock_response.text = "Я съел овсянку на завтрак"
-
-    mock_client = MagicMock()
-    mock_client.audio.transcriptions.create = MagicMock(return_value=mock_response)
-
-    with patch("nutrition_agent.services.whisper._get_client", return_value=mock_client):
-        result = await transcribe_voice(str(dummy_file))
+async def test_transcribe_voice_returns_text():
+    with patch("nutrition_agent.services.whisper._get_client", return_value=MagicMock()), \
+         patch("nutrition_agent.services.whisper._transcribe_sync", return_value="Я съел овсянку на завтрак"):
+        result = await transcribe_voice("/tmp/voice.ogg")
         assert result == "Я съел овсянку на завтрак"
 
 
