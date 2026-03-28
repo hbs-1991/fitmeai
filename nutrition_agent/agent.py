@@ -30,13 +30,23 @@ class NutritionAgent:
         self._mcp_args = mcp_args
         self._mcp_cwd = mcp_cwd
 
+    def _build_system_prompt(self) -> str:
+        """Load CLAUDE.md + about_me.md as the system prompt."""
+        parts: list[str] = []
+
+        claude_md = self._project_dir / "CLAUDE.md"
+        if claude_md.exists():
+            parts.append(claude_md.read_text(encoding="utf-8"))
+
+        about_me = self._project_dir / "about_me.md"
+        if about_me.exists():
+            parts.append(about_me.read_text(encoding="utf-8"))
+
+        return "\n\n".join(parts) if parts else ""
+
     def _build_base_options(self) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
-            system_prompt={
-                "type": "preset",
-                "preset": "claude_code",
-            },
-            setting_sources=["project"],
+            system_prompt=self._build_system_prompt(),
             cwd=str(self._project_dir),
             permission_mode="bypassPermissions",
             mcp_servers={
@@ -49,7 +59,6 @@ class NutritionAgent:
             allowed_tools=[
                 "Read",
                 "Write",
-                "Skill",
                 "mcp__fatsecret__*",
             ],
             max_turns=20,
