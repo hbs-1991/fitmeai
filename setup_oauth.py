@@ -1,10 +1,10 @@
 """
 OAuth Setup Utility for FatSecret MCP Server
 
-This script guides you through the OAuth authorization process to enable
-authenticated features like food diary, exercise tracking, and weight management.
+Uses OAuth 1.0 three-legged flow to authorize user-level access
+(food diary, exercise tracking, weight management).
 
-Run this once to authorize the application and store tokens.
+Run once: python setup_oauth.py
 """
 
 import sys
@@ -16,60 +16,53 @@ logger = get_logger(__name__)
 
 
 def main():
-    """Main entry point for OAuth setup."""
     print("\n" + "=" * 60)
-    print("FatSecret MCP Server - OAuth Setup")
+    print("FatSecret MCP Server — OAuth 1.0 Setup")
     print("=" * 60)
-    print("\nThis will authorize the application to access your FatSecret account.")
-    print("\nFeatures enabled after authorization:")
-    print("  • Food diary tracking")
-    print("  • Exercise logging")
-    print("  • Weight management")
-    print("  • Saved meals")
-    print("  • Favorites")
+    print("\nЭтот скрипт авторизует доступ к вашему аккаунту FatSecret.")
+    print("\nПосле авторизации будут доступны:")
+    print("  • Дневник питания")
+    print("  • Упражнения")
+    print("  • Отслеживание веса")
 
     # Validate credentials
     try:
         check_credentials()
     except ConfigurationError as e:
-        print(f"\n❌ Configuration Error:\n{e}")
-        print("\nPlease fix the configuration and try again.")
+        print(f"\n❌ Ошибка конфигурации:\n{e}")
         sys.exit(1)
 
     print("\n" + "-" * 60)
-    input("Press ENTER to continue with authorization...")
+    input("Нажмите ENTER для начала авторизации...")
 
-    # Run OAuth flow
     try:
         success = run_oauth_flow()
 
         if success:
             print("\n" + "=" * 60)
-            print("Setup Complete!")
+            print("Готово!")
             print("=" * 60)
-            print("\nNext steps:")
-            print("1. Run the authenticated server: python main.py")
-            print("2. Configure Claude Desktop to use the server")
-            print("3. Start tracking your nutrition and exercise!")
-            print("\nSee docs/setup.md for Claude Desktop configuration.")
+            print("\nСледующие шаги:")
+            print("1. Запустите сервер: python main.py")
+            print("2. Подключите к Claude Desktop или боту")
+            print("3. Начинайте отслеживать питание!")
             sys.exit(0)
         else:
             print("\n" + "=" * 60)
-            print("Setup Failed")
+            print("Ошибка")
             print("=" * 60)
-            print("\nPlease try again. If the problem persists, check:")
-            print("• Your internet connection")
-            print("• Your FatSecret API credentials")
-            print("• The callback URL (should be http://localhost:8080/callback)")
+            print("\nПопробуйте ещё раз. Проверьте:")
+            print("• Интернет-соединение")
+            print("• Credentials в .env (CLIENT_ID / CLIENT_SECRET)")
+            print("• Callback URL: http://localhost:8080/callback")
             sys.exit(1)
 
     except KeyboardInterrupt:
-        print("\n\nSetup cancelled by user.")
+        print("\n\nОтменено.")
         sys.exit(1)
     except Exception as e:
-        logger.error(f"Unexpected error during OAuth setup: {e}")
-        print(f"\n❌ Unexpected error: {e}")
-        print("\nPlease report this issue with the error details.")
+        logger.error(f"Unexpected error: {e}")
+        print(f"\n❌ Неожиданная ошибка: {e}")
         sys.exit(1)
 
 

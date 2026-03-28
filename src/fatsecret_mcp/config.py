@@ -30,13 +30,14 @@ class Config:
     API_BASE_URL: str = os.getenv(
         "FATSECRET_API_BASE_URL", "https://platform.fatsecret.com/rest/server.api"
     )
-    OAUTH_BASE_URL: str = os.getenv(
-        "FATSECRET_OAUTH_BASE_URL", "https://www.fatsecret.com/oauth"
-    )
 
-    # Derived URLs
-    OAUTH_AUTHORIZE_URL: str = f"{OAUTH_BASE_URL}/authorize"
-    OAUTH_TOKEN_URL: str = f"{OAUTH_BASE_URL}/token"
+    # OAuth 2.0 (Client Credentials — server-to-server, public API only)
+    OAUTH2_TOKEN_URL: str = "https://oauth.fatsecret.com/connect/token"
+
+    # OAuth 1.0 (Three-legged — user-level access for diary/exercise/weight)
+    OAUTH1_REQUEST_TOKEN_URL: str = "https://authentication.fatsecret.com/oauth/request_token"
+    OAUTH1_AUTHORIZE_URL: str = "https://authentication.fatsecret.com/oauth/authorize"
+    OAUTH1_ACCESS_TOKEN_URL: str = "https://authentication.fatsecret.com/oauth/access_token"
 
     @classmethod
     def validate(cls) -> tuple[bool, Optional[str]]:
