@@ -1,24 +1,27 @@
 FROM python:3.13-slim
 
-# System deps for pyzbar (zbar) and Claude CLI (node runtime)
+# System deps for pyzbar (zbar)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libzbar0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies
+# Install build tools first
+RUN pip install --no-cache-dir setuptools wheel
+
+# Copy and install dependencies
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]" 2>/dev/null || pip install --no-cache-dir .
+COPY src/ ./src/
+COPY main.py main_noauth.py ./
 
-# Copy project files
+# Install the project
+RUN pip install --no-cache-dir ".[dev]"
+
+# Copy remaining files
 COPY . .
-
-# Install the project itself
-RUN pip install --no-cache-dir -e .
 
 # Create memory directory
 RUN mkdir -p /app/memory
 
-# Run the bot
 CMD ["python", "run_bot.py"]
