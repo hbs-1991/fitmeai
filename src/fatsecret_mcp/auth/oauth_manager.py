@@ -80,6 +80,7 @@ class OAuthManager:
             client_secret=self.consumer_secret,
             resource_owner_key=token,
             resource_owner_secret=secret,
+            signature_type="BODY",
         )
 
     # ── Three-Legged Flow ──────────────────────────────────────────
@@ -90,6 +91,7 @@ class OAuthManager:
             client_key=self.consumer_key,
             client_secret=self.consumer_secret,
             callback_uri=self.callback_url,
+            signature_type="BODY",
         )
         try:
             resp = oauth.fetch_request_token(config.OAUTH1_REQUEST_TOKEN_URL)
@@ -114,6 +116,7 @@ class OAuthManager:
             client_secret=self.consumer_secret,
             resource_owner_key=request_token,
             resource_owner_secret=request_secret,
+            signature_type="BODY",
         )
         oauth._client.client.verifier = verifier
         try:

@@ -133,6 +133,7 @@ class FatSecretClient:
             client_secret=config.CLIENT_SECRET,
             resource_owner_key=self._oauth1_token,
             resource_owner_secret=self._oauth1_secret,
+            signature_type="BODY",
         )
         try:
             resp = oauth.post(self.base_url, data=params, timeout=30)
