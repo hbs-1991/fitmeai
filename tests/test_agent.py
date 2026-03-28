@@ -20,6 +20,7 @@ def test_agent_builds_base_options(agent):
     assert opts.permission_mode == "bypassPermissions"
     assert "Read" in opts.allowed_tools
     assert "Write" in opts.allowed_tools
+    assert "Skill" in opts.allowed_tools
 
 
 def test_agent_builds_resume_options(agent):

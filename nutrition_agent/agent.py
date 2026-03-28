@@ -46,7 +46,12 @@ class NutritionAgent:
 
     def _build_base_options(self) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
-            system_prompt=self._build_system_prompt(),
+            system_prompt={
+                "type": "preset",
+                "preset": "claude_code",
+                "append": self._build_system_prompt(),
+            },
+            setting_sources=["project"],
             cwd=str(self._project_dir),
             permission_mode="bypassPermissions",
             mcp_servers={
@@ -59,6 +64,7 @@ class NutritionAgent:
             allowed_tools=[
                 "Read",
                 "Write",
+                "Skill",
                 "mcp__fatsecret__*",
             ],
             max_turns=20,
