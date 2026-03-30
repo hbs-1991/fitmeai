@@ -100,7 +100,7 @@ class FatSecretClient:
         request_params["method"] = method
         request_params["format"] = "json"
 
-        if require_auth:
+        if require_auth or self._oauth1_token:
             return self._request_oauth1(request_params)
         return self._request_oauth2(request_params)
 

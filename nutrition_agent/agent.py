@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 from claude_agent_sdk import (
     ClaudeAgentOptions,
@@ -49,7 +49,6 @@ class NutritionAgent:
                 "append": self._build_system_prompt(),
             },
             setting_sources=["project"],
-            plugins=[],
             cwd=str(self._project_dir),
             permission_mode="bypassPermissions",
             mcp_servers={
@@ -76,7 +75,9 @@ class NutritionAgent:
         )
 
     def _build_resume_options(self, session_id: str) -> ClaudeAgentOptions:
-        return ClaudeAgentOptions(resume=session_id)
+        opts = self._build_base_options()
+        opts.resume = session_id
+        return opts
 
     async def _load_memory(
         self,
@@ -105,35 +106,51 @@ class NutritionAgent:
 
     async def send_text(
         self, prompt: str, session_id: str | None = None
-    ) -> AsyncIterator[tuple[str, str | None, str | None]]:
-        """Send text prompt to agent. Yields (text_chunk, session_id, result)."""
+    ) -> tuple[str, str | None]:
+        """Send text prompt to agent. Returns (response_text, session_id)."""
+        mode = "resume" if session_id else "new"
+        logger.info("send_text [%s] session=%s prompt=%r", mode, session_id, prompt[:80])
+
         if session_id:
             options = self._build_resume_options(session_id)
         else:
             options = self._build_base_options()
 
         new_session_id: str | None = None
-        result_text: str | None = None
+        result_text = ""
+        msg_count = 0
 
         async for message in query(prompt=prompt, options=options):
+            msg_count += 1
+            msg_type = type(message).__name__
+
             if isinstance(message, SystemMessage):
-                if hasattr(message, "subtype") and message.subtype == "init":
-                    new_session_id = getattr(message, "session_id", None)
-                    yield ("", new_session_id, None)
+                subtype = getattr(message, "subtype", None)
+                logger.debug("SDK msg #%d: %s subtype=%s", msg_count, msg_type, subtype)
+                if subtype == "init":
+                    new_session_id = message.data.get("session_id") if hasattr(message, "data") and isinstance(message.data, dict) else None
 
             elif isinstance(message, AssistantMessage):
-                for block in message.content:
+                for block in getattr(message, "content", []):
                     if isinstance(block, TextBlock):
-                        yield (block.text, new_session_id, None)
+                        result_text += block.text
+                logger.debug("SDK msg #%d: AssistantMessage blocks=%d", msg_count, len(getattr(message, "content", [])))
 
             elif isinstance(message, ResultMessage):
-                result_text = getattr(message, "result", None)
-                yield ("", new_session_id, result_text)
+                final = getattr(message, "result", None)
+                if final:
+                    result_text = final
+                logger.info("send_text completed: %d messages, result_len=%d", msg_count, len(result_text))
+
+            else:
+                logger.debug("SDK msg #%d: %s", msg_count, msg_type)
+
+        return (result_text, new_session_id)
 
     async def send_image(
         self, image_path: str, text: str, session_id: str | None = None
-    ) -> AsyncIterator[tuple[str, str | None, str | None]]:
-        """Send image + text to agent via streaming input."""
+    ) -> tuple[str, str | None]:
+        """Send image + text to agent. Returns (response_text, session_id)."""
         import base64
 
         with open(image_path, "rb") as f:
@@ -168,18 +185,25 @@ class NutritionAgent:
             options = self._build_base_options()
 
         new_session_id: str | None = None
+        result_text = ""
+        msg_count = 0
 
         async for message in query(prompt=message_stream(), options=options):
+            msg_count += 1
+
             if isinstance(message, SystemMessage):
                 if hasattr(message, "subtype") and message.subtype == "init":
-                    new_session_id = getattr(message, "session_id", None)
-                    yield ("", new_session_id, None)
+                    new_session_id = message.data.get("session_id") if hasattr(message, "data") and isinstance(message.data, dict) else None
 
             elif isinstance(message, AssistantMessage):
-                for block in message.content:
+                for block in getattr(message, "content", []):
                     if isinstance(block, TextBlock):
-                        yield (block.text, new_session_id, None)
+                        result_text += block.text
 
             elif isinstance(message, ResultMessage):
-                result_text = getattr(message, "result", None)
-                yield ("", new_session_id, result_text)
+                final = getattr(message, "result", None)
+                if final:
+                    result_text = final
+                logger.info("send_image completed: %d messages", msg_count)
+
+        return (result_text, new_session_id)

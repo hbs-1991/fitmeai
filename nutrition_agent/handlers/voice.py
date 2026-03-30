@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import tempfile
 from pathlib import Path
 
 from aiogram import Bot, Router
 from aiogram.types import Message
+from aiogram.utils.chat_action import ChatActionSender
 
 from nutrition_agent.agent import NutritionAgent
 from nutrition_agent.handlers.utils import send_long_text
@@ -26,6 +28,9 @@ def setup(agent: NutritionAgent, sessions: SessionManager) -> None:
     _sessions = sessions
 
 
+AGENT_TIMEOUT = 300
+
+
 @router.message(lambda m: m.voice is not None)
 async def handle_voice(message: Message) -> None:
     if not _agent or not _sessions:
@@ -35,39 +40,53 @@ async def handle_voice(message: Message) -> None:
     chat_id = message.chat.id
     thread_id = message.message_thread_id
 
-    await bot.send_chat_action(chat_id=chat_id, action="typing")
+    async with ChatActionSender.typing(bot=bot, chat_id=chat_id):
+        # Download voice file
+        voice = message.voice
+        file = await bot.get_file(voice.file_id)
 
-    # Download voice file
-    voice = message.voice
-    file = await bot.get_file(voice.file_id)
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+            await bot.download_file(file.file_path, tmp.name)
+            tmp_path = tmp.name
 
-    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
-        await bot.download_file(file.file_path, tmp.name)
-        tmp_path = tmp.name
+        try:
+            text = await transcribe_voice(tmp_path)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
 
-    try:
-        text = await transcribe_voice(tmp_path)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+        if not text:
+            await message.answer("Не удалось распознать голосовое сообщение.")
+            return
 
-    if not text:
-        await message.answer("Не удалось распознать голосовое сообщение.")
-        return
+        await message.answer(f"Распознано: {text}")
 
-    await message.answer(f"Распознано: {text}")
+        # Process transcribed text through agent
+        session_id = _sessions.get_session(chat_id, thread_id)
 
-    # Process transcribed text through agent
-    session_id = _sessions.get_session(chat_id, thread_id)
-    accumulated = ""
+        task = asyncio.create_task(
+            _agent.send_text(
+                prompt=f"[Голосовое сообщение]: {text}", session_id=session_id
+            ),
+        )
 
-    async for text_chunk, new_session_id, result in _agent.send_text(
-        prompt=f"[Голосовое сообщение]: {text}", session_id=session_id
-    ):
-        if new_session_id and not session_id:
-            session_id = new_session_id
+        done, pending = await asyncio.wait({task}, timeout=AGENT_TIMEOUT)
+
+        if pending:
+            task.cancel()
+            logger.warning("Agent timed out for voice message chat_id=%d", chat_id)
+            _sessions.clear_session(chat_id, thread_id)
+            await message.answer("Агент не ответил вовремя. Попробуй ещё раз.")
+            return
+
+        exc = task.exception() if not task.cancelled() else None
+        if exc:
+            logger.error("Agent error for voice chat_id=%d: %s", chat_id, exc)
+            await message.answer("Произошла ошибка. Попробуй ещё раз.")
+            return
+
+        response_text, new_session_id = task.result()
+
+        if new_session_id and new_session_id != session_id:
             _sessions.set_session(chat_id, new_session_id, thread_id)
 
-        if text_chunk:
-            accumulated += text_chunk
-
-    await send_long_text(message, accumulated)
+        await send_long_text(message, response_text)

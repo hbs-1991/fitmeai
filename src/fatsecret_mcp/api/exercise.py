@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import date
 from ..utils import get_logger
 from .base_client import FatSecretClient
+from .date_utils import date_to_epoch_days, epoch_days_to_date
 from ..models.exercise import Exercise, ExerciseEntry, ExerciseDay
 
 logger = get_logger(__name__)
@@ -88,7 +89,7 @@ class ExerciseAPI:
         logger.info(f"Getting exercise entries for {entry_date}")
 
         response = self.client.post(
-            "exercise_entries.get", require_auth=True, date=entry_date
+            "exercise_entries.get", require_auth=True, date=date_to_epoch_days(entry_date)
         )
 
         # Parse response
@@ -167,10 +168,9 @@ class ExerciseAPI:
             day_list = [day_list]
 
         for day_data in day_list:
-            day_date = day_data.get("date_int")  # Format: YYYYMMDD
+            day_date = day_data.get("date_int")
             if day_date:
-                # Convert YYYYMMDD to YYYY-MM-DD
-                date_str = f"{day_date[:4]}-{day_date[4:6]}-{day_date[6:8]}"
+                date_str = epoch_days_to_date(int(day_date))
 
                 day = ExerciseDay(
                     date=date_str,
@@ -214,7 +214,7 @@ class ExerciseAPI:
             require_auth=True,
             exercise_id=exercise_id,
             minutes=minutes,
-            date=entry_date,
+            date=date_to_epoch_days(entry_date),
         )
 
         entry_id = str(response.get("exercise_entry_id", ""))

@@ -155,6 +155,7 @@ def register_diary_tools(mcp, client: FatSecretClient):
     @mcp.tool()
     def fatsecret_diary_add_entry(
         food_id: str,
+        food_entry_name: str,
         serving_id: str,
         meal: str,
         number_of_units: float = 1.0,
@@ -165,15 +166,37 @@ def register_diary_tools(mcp, client: FatSecretClient):
 
         This tool logs a food item to your diary for a specific meal and date.
         Use fatsecret_food_search to find the food_id, then fatsecret_food_get
-        to get the serving_id.
+        to get the serving_id and serving details.
+
+        IMPORTANT: How number_of_units works depends on the serving type:
+
+        For GRAM-BASED servings (description contains "g", e.g. "100 g"):
+          - number_of_units is the NUMBER OF GRAMS, not the number of servings!
+          - The serving description "100 g" means the unit is 1 gram
+          - To log 100g: use number_of_units=100.0
+          - To log 150g: use number_of_units=150.0
+          - To log 50g: use number_of_units=50.0
+
+        For NON-GRAM servings (e.g. "1 cup", "1 breast", "1 oz"):
+          - number_of_units is the number of those servings
+          - To log 2 cups: use number_of_units=2.0
+          - To log 0.5 breast: use number_of_units=0.5
+
+        RECOMMENDED APPROACH for gram-based requests:
+        1. Call fatsecret_food_get to get servings
+        2. Find the serving with description containing "g" (e.g. "100 g")
+        3. Set number_of_units = desired grams (NOT desired_grams / 100!)
 
         Args:
             food_id: FatSecret food ID (from fatsecret_food_search)
-            serving_id: Serving ID (from fatsecret_food_get)
+            food_entry_name: Name of the food entry as it will appear in the diary
+                            Example: "Куриная грудка", "Scrambled Eggs"
+            serving_id: Serving ID (from fatsecret_food_get servings list).
+                       For gram-based logging, pick the serving with "g" in description.
             meal: Meal name - must be one of:
-                 "breakfast", "lunch", "dinner", "snack", "other"
-            number_of_units: Number of servings (default: 1.0)
-                            Example: 2.0 for 2 servings, 0.5 for half serving
+                 "breakfast", "lunch", "dinner", "other"
+            number_of_units: For gram servings: number of GRAMS (100g → 100.0).
+                            For other servings: number of those servings (2 cups → 2.0).
             entry_date: Date in YYYY-MM-DD format (default: today)
 
         Returns:
@@ -182,26 +205,23 @@ def register_diary_tools(mcp, client: FatSecretClient):
             - message: Success message
 
         Example:
-            Add 2 eggs to breakfast:
-            >>> # First find the food
-            >>> search = fatsecret_food_search(query="egg scrambled")
-            >>> food_id = search['foods'][0]['food_id']
-            >>> # Get serving info
-            >>> food = fatsecret_food_get(food_id=food_id)
-            >>> serving_id = food['servings'][0]['serving_id']
-            >>> # Add to diary
+            Add 100g chicken breast to lunch:
+            >>> food = fatsecret_food_get(food_id="1641")
+            >>> # Find the "100 g" serving (serving_id=50321)
+            >>> # For gram serving: number_of_units = desired grams = 100
             >>> result = fatsecret_diary_add_entry(
-            ...     food_id=food_id,
-            ...     serving_id=serving_id,
-            ...     meal="breakfast",
-            ...     number_of_units=2.0
+            ...     food_id="1641",
+            ...     food_entry_name="Chicken Breast",
+            ...     serving_id="50321",
+            ...     meal="lunch",
+            ...     number_of_units=100.0  # 100 grams!
             ... )
         """
         try:
-            logger.info(f"Adding diary entry: {food_id} to {meal}")
+            logger.info(f"Adding diary entry: {food_entry_name} ({food_id}) to {meal}")
 
             # Validate meal
-            valid_meals = ["breakfast", "lunch", "dinner", "snack", "other"]
+            valid_meals = ["breakfast", "lunch", "dinner", "other"]
             if meal.lower() not in valid_meals:
                 return {
                     "error": f"Invalid meal. Must be one of: {', '.join(valid_meals)}",
@@ -213,6 +233,7 @@ def register_diary_tools(mcp, client: FatSecretClient):
                 meal=meal.lower(),
                 number_of_units=number_of_units,
                 entry_date=entry_date,
+                entry_name=food_entry_name,
             )
 
             return {
@@ -244,7 +265,7 @@ def register_diary_tools(mcp, client: FatSecretClient):
             food_entry_id: Diary entry ID to edit (from fatsecret_diary_get_entries)
             serving_id: New serving ID (optional)
             number_of_units: New number of servings (optional)
-            meal: New meal name (optional) - "breakfast", "lunch", "dinner", "snack", "other"
+            meal: New meal name (optional) - "breakfast", "lunch", "dinner", "other"
 
         Returns:
             Dictionary containing:
@@ -269,7 +290,7 @@ def register_diary_tools(mcp, client: FatSecretClient):
 
             # Validate meal if provided
             if meal is not None:
-                valid_meals = ["breakfast", "lunch", "dinner", "snack", "other"]
+                valid_meals = ["breakfast", "lunch", "dinner", "other"]
                 if meal.lower() not in valid_meals:
                     return {
                         "error": f"Invalid meal. Must be one of: {', '.join(valid_meals)}",

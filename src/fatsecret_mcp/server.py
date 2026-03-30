@@ -60,6 +60,5 @@ def create_server(
         logger.info("Registered authenticated tools (diary, exercise, weight)")
 
     logger.info("FatSecret MCP Server initialized successfully")
-    logger.info(f"Available tools: {len(mcp._tool_manager._tools)}")
 
     return mcp

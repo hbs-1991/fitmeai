@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from aiogram import Bot, Router
@@ -23,6 +24,9 @@ def setup(agent: NutritionAgent, sessions: SessionManager) -> None:
     _sessions = sessions
 
 
+AGENT_TIMEOUT = 300  # seconds — max time to wait for agent response
+
+
 @router.message()
 async def handle_text(message: Message) -> None:
     if not message.text or not _agent or not _sessions:
@@ -36,16 +40,30 @@ async def handle_text(message: Message) -> None:
 
     await bot.send_chat_action(chat_id=chat_id, action="typing")
 
-    accumulated = ""
+    task = asyncio.create_task(
+        _agent.send_text(prompt=message.text, session_id=session_id)
+    )
 
-    async for text_chunk, new_session_id, result in _agent.send_text(
-        prompt=message.text, session_id=session_id
-    ):
-        if new_session_id and not session_id:
-            session_id = new_session_id
-            _sessions.set_session(chat_id, new_session_id, thread_id)
+    done, pending = await asyncio.wait({task}, timeout=AGENT_TIMEOUT)
 
-        if text_chunk:
-            accumulated += text_chunk
+    if pending:
+        task.cancel()
+        logger.warning("Agent timed out after %ds for chat_id=%d", AGENT_TIMEOUT, chat_id)
+        _sessions.clear_session(chat_id, thread_id)
+        await message.answer(
+            "Агент не ответил вовремя. Сессия сброшена — попробуй ещё раз."
+        )
+        return
 
-    await send_long_text(message, accumulated)
+    exc = task.exception() if not task.cancelled() else None
+    if exc:
+        logger.error("Agent error for chat_id=%d: %s", chat_id, exc)
+        await message.answer("Произошла ошибка. Попробуй ещё раз.")
+        return
+
+    response_text, new_session_id = task.result()
+
+    if new_session_id and new_session_id != session_id:
+        _sessions.set_session(chat_id, new_session_id, thread_id)
+
+    await send_long_text(message, response_text)

@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import date, datetime
 from ..utils import get_logger
 from .base_client import FatSecretClient
+from .date_utils import date_to_epoch_days, epoch_days_to_date
 from ..models.diary import DiaryEntry, DiaryDay, DiaryMonth
 
 logger = get_logger(__name__)
@@ -12,7 +13,7 @@ logger = get_logger(__name__)
 class FoodDiaryAPI:
     """Client for FatSecret Food Diary API."""
 
-    MEAL_NAMES = ["breakfast", "lunch", "dinner", "snack", "other"]
+    MEAL_NAMES = ["breakfast", "lunch", "dinner", "other"]
 
     def __init__(self, client: FatSecretClient):
         """
@@ -44,7 +45,7 @@ class FoodDiaryAPI:
         logger.info(f"Getting diary entries for {entry_date}")
 
         response = self.client.post(
-            "food_entries.get", require_auth=True, date=entry_date
+            "food_entries.get", require_auth=True, date=date_to_epoch_days(entry_date)
         )
 
         # Parse response
@@ -54,7 +55,7 @@ class FoodDiaryAPI:
         total_protein = 0.0
         total_fat = 0.0
 
-        food_entries_data = response.get("food_entries", {})
+        food_entries_data = response.get("food_entries") or {}
         food_entry_list = food_entries_data.get("food_entry", [])
 
         # Ensure it's a list
@@ -133,10 +134,9 @@ class FoodDiaryAPI:
             day_list = [day_list]
 
         for day_data in day_list:
-            day_date = day_data.get("date_int")  # Format: YYYYMMDD
+            day_date = day_data.get("date_int")
             if day_date:
-                # Convert YYYYMMDD to YYYY-MM-DD
-                date_str = f"{day_date[:4]}-{day_date[4:6]}-{day_date[6:8]}"
+                date_str = epoch_days_to_date(int(day_date))
 
                 day = DiaryDay(
                     date=date_str,
@@ -160,7 +160,7 @@ class FoodDiaryAPI:
         meal: str,
         number_of_units: float = 1.0,
         entry_date: Optional[str] = None,
-        entry_name: Optional[str] = None,
+        entry_name: str = "",
     ) -> str:
         """
         Add a food entry to the diary.
@@ -171,7 +171,7 @@ class FoodDiaryAPI:
             meal: Meal name (breakfast, lunch, dinner, snack)
             number_of_units: Number of servings (default: 1.0)
             entry_date: Date in YYYY-MM-DD format (default: today)
-            entry_name: Custom name for entry (optional)
+            entry_name: Name for the diary entry (required by FatSecret API)
 
         Returns:
             Food entry ID
@@ -182,7 +182,8 @@ class FoodDiaryAPI:
             ...     food_id="12345",
             ...     serving_id="67890",
             ...     meal="breakfast",
-            ...     number_of_units=2.0
+            ...     number_of_units=2.0,
+            ...     entry_name="Scrambled Eggs"
             ... )
         """
         if entry_date is None:
@@ -198,18 +199,20 @@ class FoodDiaryAPI:
 
         params = {
             "food_id": food_id,
+            "food_entry_name": entry_name or f"Food {food_id}",
             "serving_id": serving_id,
             "meal": meal,
             "number_of_units": number_of_units,
-            "date": entry_date,
+            "date": date_to_epoch_days(entry_date),
         }
-
-        if entry_name:
-            params["food_entry_name"] = entry_name
 
         response = self.client.post("food_entry.create", require_auth=True, **params)
 
-        entry_id = str(response.get("food_entry_id", ""))
+        raw_id = response.get("food_entry_id", "")
+        if isinstance(raw_id, dict):
+            entry_id = str(raw_id.get("value", ""))
+        else:
+            entry_id = str(raw_id)
         logger.info(f"Created diary entry: {entry_id}")
         return entry_id
 

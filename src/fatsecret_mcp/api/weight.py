@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from datetime import date
 from ..utils import get_logger
 from .base_client import FatSecretClient
+from .date_utils import date_to_epoch_days, epoch_days_to_date
 
 logger = get_logger(__name__)
 
@@ -47,8 +48,8 @@ class WeightAPI:
         logger.info(f"Updating weight for {entry_date}: {weight_kg} kg")
 
         params = {
-            "weight_kg": weight_kg,
-            "date": entry_date,
+            "current_weight_kg": weight_kg,
+            "date": date_to_epoch_days(entry_date),
         }
 
         if comment:
@@ -99,10 +100,9 @@ class WeightAPI:
             day_list = [day_list]
 
         for day_data in day_list:
-            day_date = day_data.get("date_int")  # Format: YYYYMMDD
+            day_date = day_data.get("date_int")
             if day_date:
-                # Convert YYYYMMDD to YYYY-MM-DD
-                date_str = f"{day_date[:4]}-{day_date[4:6]}-{day_date[6:8]}"
+                date_str = epoch_days_to_date(int(day_date))
 
                 weight_entry = {
                     "date": date_str,
