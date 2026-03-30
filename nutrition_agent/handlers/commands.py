@@ -4,6 +4,7 @@ from aiogram import Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 
+from nutrition_agent.handlers.utils import markdown_to_telegram_html
 from nutrition_agent.services.session_manager import SessionManager
 
 router = Router()
@@ -52,7 +53,7 @@ async def cmd_profile(message: Message) -> None:
     profile_path = PROJECT_DIR / "about_me.md"
     if profile_path.exists():
         content = profile_path.read_text(encoding="utf-8")
-        await message.answer(content[:4096])
+        await message.answer(markdown_to_telegram_html(content)[:4096])
     else:
         await message.answer("Профиль не найден. Создай файл about_me.md в корне проекта.")
 

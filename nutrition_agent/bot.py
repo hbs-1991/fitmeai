@@ -34,7 +34,7 @@ class OwnerCheckMiddleware(BaseMiddleware):
 def create_bot(config: Config) -> tuple[Bot, Dispatcher]:
     bot = Bot(
         token=config.telegram_bot_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher()
 
