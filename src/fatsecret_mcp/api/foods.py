@@ -196,6 +196,116 @@ class FoodsAPI:
         logger.info(f"Found {len(suggestions)} suggestions")
         return suggestions
 
+    def create(
+        self,
+        food_name: str,
+        brand_name: str,
+        brand_type: str,
+        serving_size: str,
+        calories: float,
+        fat: float,
+        carbohydrate: float,
+        protein: float,
+        serving_amount: Optional[float] = None,
+        serving_amount_unit: Optional[str] = None,
+        saturated_fat: Optional[float] = None,
+        polyunsaturated_fat: Optional[float] = None,
+        monounsaturated_fat: Optional[float] = None,
+        trans_fat: Optional[float] = None,
+        cholesterol: Optional[float] = None,
+        sodium: Optional[float] = None,
+        potassium: Optional[float] = None,
+        fiber: Optional[float] = None,
+        sugar: Optional[float] = None,
+        added_sugars: Optional[float] = None,
+        vitamin_d: Optional[float] = None,
+        vitamin_a: Optional[float] = None,
+        vitamin_c: Optional[float] = None,
+        calcium: Optional[float] = None,
+        iron: Optional[float] = None,
+        region: Optional[str] = None,
+        language: Optional[str] = None,
+    ) -> str:
+        """
+        Create a new branded food item in FatSecret.
+
+        Args:
+            food_name: Food name excluding brand (e.g., "Instant Oatmeal")
+            brand_name: Brand identifier (e.g., "Quaker")
+            brand_type: One of "manufacturer", "restaurant", or "supermarket"
+            serving_size: Complete serving description (e.g., "1 packet (43g)")
+            calories: Energy content in kcal
+            fat: Total fat in grams
+            carbohydrate: Total carbohydrates in grams
+            protein: Protein in grams
+            serving_amount: Numeric serving amount
+            serving_amount_unit: Unit for serving_amount (e.g., "g", "ml")
+            saturated_fat: Saturated fat in grams
+            polyunsaturated_fat: Polyunsaturated fat in grams
+            monounsaturated_fat: Monounsaturated fat in grams
+            trans_fat: Trans fat in grams
+            cholesterol: Cholesterol in mg
+            sodium: Sodium in mg
+            potassium: Potassium in mg
+            fiber: Dietary fiber in grams
+            sugar: Sugar in grams
+            added_sugars: Added sugars in grams
+            vitamin_d: Vitamin D in mcg
+            vitamin_a: Vitamin A in mcg RE
+            vitamin_c: Vitamin C in mg
+            calcium: Calcium in mg
+            iron: Iron in mg
+            region: Region code (e.g., "US")
+            language: Language code (e.g., "en")
+
+        Returns:
+            food_id of the newly created food
+        """
+        logger.info(f"Creating food: '{brand_name} {food_name}'")
+
+        params: Dict[str, Any] = {
+            "food_name": food_name,
+            "brand_name": brand_name,
+            "brand_type": brand_type,
+            "serving_size": serving_size,
+            "calories": str(calories),
+            "fat": str(fat),
+            "carbohydrate": str(carbohydrate),
+            "protein": str(protein),
+        }
+
+        optional_fields = {
+            "serving_amount": serving_amount,
+            "serving_amount_unit": serving_amount_unit,
+            "saturated_fat": saturated_fat,
+            "polyunsaturated_fat": polyunsaturated_fat,
+            "monounsaturated_fat": monounsaturated_fat,
+            "trans_fat": trans_fat,
+            "cholesterol": cholesterol,
+            "sodium": sodium,
+            "potassium": potassium,
+            "fiber": fiber,
+            "sugar": sugar,
+            "added_sugars": added_sugars,
+            "vitamin_d": vitamin_d,
+            "vitamin_a": vitamin_a,
+            "vitamin_c": vitamin_c,
+            "calcium": calcium,
+            "iron": iron,
+            "region": region,
+            "language": language,
+        }
+
+        for key, value in optional_fields.items():
+            if value is not None:
+                params[key] = str(value)
+
+        response = self.client.post("food.create.v2", require_auth=False, **params)
+
+        food_id = str(response.get("food_id", {}).get("value", ""))
+        logger.info(f"Created food with ID: {food_id}")
+        return food_id
+
     @staticmethod
     def _parse_float(value: Any) -> Optional[float]:
         """Parse value to float, return None if invalid."""

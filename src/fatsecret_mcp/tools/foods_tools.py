@@ -341,6 +341,144 @@ def register_food_tools(mcp, client: Optional[FatSecretClient] = None):
             return {"error": f"Unexpected error: {str(e)}"}
 
     @mcp.tool()
+    def fatsecret_food_create(
+        food_name: str,
+        brand_name: str,
+        brand_type: str,
+        serving_size: str,
+        calories: float,
+        fat: float,
+        carbohydrate: float,
+        protein: float,
+        serving_amount: Optional[float] = None,
+        serving_amount_unit: Optional[str] = None,
+        saturated_fat: Optional[float] = None,
+        polyunsaturated_fat: Optional[float] = None,
+        monounsaturated_fat: Optional[float] = None,
+        trans_fat: Optional[float] = None,
+        cholesterol: Optional[float] = None,
+        sodium: Optional[float] = None,
+        potassium: Optional[float] = None,
+        fiber: Optional[float] = None,
+        sugar: Optional[float] = None,
+        added_sugars: Optional[float] = None,
+        vitamin_d: Optional[float] = None,
+        vitamin_a: Optional[float] = None,
+        vitamin_c: Optional[float] = None,
+        calcium: Optional[float] = None,
+        iron: Optional[float] = None,
+    ) -> dict:
+        """
+        Create a new branded food item in the FatSecret database.
+
+        Use this when a food product is not found in FatSecret and needs
+        to be added manually (e.g., local brands, store-specific products).
+
+        Args:
+            food_name: Food name excluding brand (e.g., "Instant Oatmeal")
+            brand_name: Brand identifier (e.g., "Quaker")
+            brand_type: One of: "manufacturer", "restaurant", or "supermarket"
+            serving_size: Complete serving description (e.g., "1 packet (43g)")
+            calories: Energy content in kcal
+            fat: Total fat in grams
+            carbohydrate: Total carbohydrates in grams
+            protein: Protein in grams
+            serving_amount: Numeric serving amount (e.g., 43)
+            serving_amount_unit: Unit for serving_amount (e.g., "g", "ml")
+            saturated_fat: Saturated fat in grams
+            polyunsaturated_fat: Polyunsaturated fat in grams
+            monounsaturated_fat: Monounsaturated fat in grams
+            trans_fat: Trans fat in grams
+            cholesterol: Cholesterol in mg
+            sodium: Sodium in mg
+            potassium: Potassium in mg
+            fiber: Dietary fiber in grams
+            sugar: Sugar in grams
+            added_sugars: Added sugars in grams
+            vitamin_d: Vitamin D in mcg
+            vitamin_a: Vitamin A in mcg RE
+            vitamin_c: Vitamin C in mg
+            calcium: Calcium in mg
+            iron: Iron in mg
+
+        Returns:
+            Dictionary containing:
+            - food_id: ID of the newly created food
+            - message: Confirmation message
+
+        Example:
+            Create a local brand product:
+            >>> result = fatsecret_food_create(
+            ...     food_name="Творог 5%",
+            ...     brand_name="Простоквашино",
+            ...     brand_type="manufacturer",
+            ...     serving_size="100 г",
+            ...     calories=121,
+            ...     fat=5.0,
+            ...     carbohydrate=3.0,
+            ...     protein=16.0,
+            ... )
+            >>> print(result["food_id"])
+        """
+        try:
+            logger.info(f"Creating food: '{brand_name} {food_name}'")
+
+            # Validate brand_type
+            valid_brand_types = ("manufacturer", "restaurant", "supermarket")
+            if brand_type not in valid_brand_types:
+                return {
+                    "error": f"brand_type must be one of: {', '.join(valid_brand_types)}",
+                }
+
+            # Validate required fields
+            if not food_name or not food_name.strip():
+                return {"error": "food_name cannot be empty"}
+            if not brand_name or not brand_name.strip():
+                return {"error": "brand_name cannot be empty"}
+            if not serving_size or not serving_size.strip():
+                return {"error": "serving_size cannot be empty"}
+
+            food_id = foods_api.create(
+                food_name=food_name.strip(),
+                brand_name=brand_name.strip(),
+                brand_type=brand_type,
+                serving_size=serving_size.strip(),
+                calories=calories,
+                fat=fat,
+                carbohydrate=carbohydrate,
+                protein=protein,
+                serving_amount=serving_amount,
+                serving_amount_unit=serving_amount_unit,
+                saturated_fat=saturated_fat,
+                polyunsaturated_fat=polyunsaturated_fat,
+                monounsaturated_fat=monounsaturated_fat,
+                trans_fat=trans_fat,
+                cholesterol=cholesterol,
+                sodium=sodium,
+                potassium=potassium,
+                fiber=fiber,
+                sugar=sugar,
+                added_sugars=added_sugars,
+                vitamin_d=vitamin_d,
+                vitamin_a=vitamin_a,
+                vitamin_c=vitamin_c,
+                calcium=calcium,
+                iron=iron,
+            )
+
+            return {
+                "food_id": food_id,
+                "message": f"Food '{brand_name} {food_name}' created successfully",
+            }
+
+        except APIError as e:
+            logger.error(f"API error in food create: {e}")
+            return {"error": str(e)}
+        except Exception as e:
+            logger.error(f"Unexpected error in food create: {e}")
+            return {"error": f"Unexpected error: {str(e)}"}
+
+    @mcp.tool()
     def fatsecret_recipe_search(query: str, max_results: int = 50, page: int = 0) -> dict:
         """
         Search for recipes by name or ingredients.
