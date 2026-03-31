@@ -300,7 +300,7 @@ class FoodsAPI:
             if value is not None:
                 params[key] = str(value)
 
-        response = self.client.post("food.create.v2", require_auth=False, **params)
+        response = self.client.post("food.create.v2", require_auth=True, **params)
 
         food_id = str(response.get("food_id", {}).get("value", ""))
         logger.info(f"Created food with ID: {food_id}")

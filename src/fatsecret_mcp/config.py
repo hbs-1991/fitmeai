@@ -13,8 +13,9 @@ class Config:
     """Configuration settings for FatSecret MCP Server."""
 
     # FatSecret API Credentials
-    CLIENT_ID: str = os.getenv("FATSECRET_CLIENT_ID", "")
-    CLIENT_SECRET: str = os.getenv("FATSECRET_CLIENT_SECRET", "")
+    # Support both naming conventions: CLIENT_ID/SECRET and CONSUMER_KEY/SECRET
+    CLIENT_ID: str = os.getenv("FATSECRET_CLIENT_ID", "") or os.getenv("FATSECRET_CONSUMER_KEY", "")
+    CLIENT_SECRET: str = os.getenv("FATSECRET_CLIENT_SECRET", "") or os.getenv("FATSECRET_CONSUMER_SECRET", "")
 
     # OAuth Configuration
     OAUTH_CALLBACK_URL: str = os.getenv(
