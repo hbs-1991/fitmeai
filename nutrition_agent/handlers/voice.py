@@ -10,7 +10,7 @@ from aiogram.types import Message
 from aiogram.utils.chat_action import ChatActionSender
 
 from nutrition_agent.agent import NutritionAgent
-from nutrition_agent.handlers.utils import send_long_text
+from nutrition_agent.handlers.utils import StatusMessage, send_long_text
 from nutrition_agent.services.session_manager import SessionManager
 from nutrition_agent.services.whisper import transcribe_voice
 
@@ -40,8 +40,8 @@ async def handle_voice(message: Message) -> None:
     chat_id = message.chat.id
     thread_id = message.message_thread_id
 
+    # Transcription phase — show typing indicator
     async with ChatActionSender.typing(bot=bot, chat_id=chat_id):
-        # Download voice file
         voice = message.voice
         file = await bot.get_file(voice.file_id)
 
@@ -60,33 +60,40 @@ async def handle_voice(message: Message) -> None:
 
         await message.answer(f"Распознано: {text}")
 
-        # Process transcribed text through agent
-        session_id = _sessions.get_session(chat_id, thread_id)
+    # Agent phase — show status message with tool indicators
+    session_id = _sessions.get_session(chat_id, thread_id)
 
-        task = asyncio.create_task(
-            _agent.send_text(
-                prompt=f"[Голосовое сообщение]: {text}", session_id=session_id
-            ),
-        )
+    status = StatusMessage(bot, chat_id)
+    await status.show()
 
-        done, pending = await asyncio.wait({task}, timeout=AGENT_TIMEOUT)
+    task = asyncio.create_task(
+        _agent.send_text(
+            prompt=f"[Голосовое сообщение]: {text}",
+            session_id=session_id,
+            on_tool_use=status.update,
+        ),
+    )
 
-        if pending:
-            task.cancel()
-            logger.warning("Agent timed out for voice message chat_id=%d", chat_id)
-            _sessions.clear_session(chat_id, thread_id)
-            await message.answer("Агент не ответил вовремя. Попробуй ещё раз.")
-            return
+    done, pending = await asyncio.wait({task}, timeout=AGENT_TIMEOUT)
 
-        exc = task.exception() if not task.cancelled() else None
-        if exc:
-            logger.error("Agent error for voice chat_id=%d: %s", chat_id, exc)
-            await message.answer("Произошла ошибка. Попробуй ещё раз.")
-            return
+    await status.close()
 
-        response_text, new_session_id = task.result()
+    if pending:
+        task.cancel()
+        logger.warning("Agent timed out for voice message chat_id=%d", chat_id)
+        _sessions.clear_session(chat_id, thread_id)
+        await message.answer("Агент не ответил вовремя. Попробуй ещё раз.")
+        return
 
-        if new_session_id and new_session_id != session_id:
-            _sessions.set_session(chat_id, new_session_id, thread_id)
+    exc = task.exception() if not task.cancelled() else None
+    if exc:
+        logger.error("Agent error for voice chat_id=%d: %s", chat_id, exc)
+        await message.answer("Произошла ошибка. Попробуй ещё раз.")
+        return
 
-        await send_long_text(message, response_text)
+    response_text, new_session_id = task.result()
+
+    if new_session_id and new_session_id != session_id:
+        _sessions.set_session(chat_id, new_session_id, thread_id)
+
+    await send_long_text(message, response_text)

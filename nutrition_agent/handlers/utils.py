@@ -1,11 +1,119 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 from html import escape as html_escape
 
+from aiogram import Bot
 from aiogram.types import Message
 
+logger = logging.getLogger(__name__)
+
 TELEGRAM_MAX_LENGTH = 4096
+
+# ── Tool name → human-readable label mapping ────────────────────────────────
+
+_TOOL_LABELS: dict[str, str] = {
+    # Agent SDK built-in tools
+    "Read": "📖 Читаю файл",
+    "Write": "📝 Записываю файл",
+    "Skill": "🧠 Использую навык",
+    # Photo handler pseudo-tool
+    "barcode_lookup": "📷 Сканирую баркод",
+    # FatSecret MCP tools — foods
+    "mcp__fatsecret__fatsecret_food_search": "🔍 Ищу продукт",
+    "mcp__fatsecret__fatsecret_food_get": "📋 Загружаю продукт",
+    "mcp__fatsecret__fatsecret_food_autocomplete": "🔍 Подбираю варианты",
+    "mcp__fatsecret__fatsecret_food_search_v3": "🔍 Ищу продукт",
+    "mcp__fatsecret__fatsecret_food_barcode_scan": "📷 Ищу по баркоду",
+    "mcp__fatsecret__fatsecret_food_create": "➕ Создаю продукт",
+    "mcp__fatsecret__fatsecret_recipe_search": "🍳 Ищу рецепт",
+    "mcp__fatsecret__fatsecret_recipe_get": "🍳 Загружаю рецепт",
+    # FatSecret MCP tools — diary
+    "mcp__fatsecret__fatsecret_diary_get_entries": "📖 Читаю дневник",
+    "mcp__fatsecret__fatsecret_diary_get_month": "📅 Загружаю месяц",
+    "mcp__fatsecret__fatsecret_diary_add_entry": "✏️ Записываю в дневник",
+    "mcp__fatsecret__fatsecret_diary_edit_entry": "✏️ Редактирую запись",
+    "mcp__fatsecret__fatsecret_diary_delete_entry": "🗑 Удаляю запись",
+    # FatSecret MCP tools — exercise
+    "mcp__fatsecret__fatsecret_exercise_search": "🏋️ Ищу упражнение",
+    "mcp__fatsecret__fatsecret_exercise_get_entries": "🏋️ Читаю тренировки",
+    "mcp__fatsecret__fatsecret_exercise_get_month": "📅 Тренировки за месяц",
+    "mcp__fatsecret__fatsecret_exercise_add_entry": "🏋️ Записываю тренировку",
+    "mcp__fatsecret__fatsecret_exercise_edit_entry": "🏋️ Редактирую тренировку",
+    # FatSecret MCP tools — weight
+    "mcp__fatsecret__fatsecret_weight_update": "⚖️ Обновляю вес",
+    "mcp__fatsecret__fatsecret_weight_get_month": "⚖️ Вес за месяц",
+}
+
+
+def tool_display_name(tool_name: str) -> str:
+    """Convert internal tool name to a user-friendly label."""
+    if tool_name in _TOOL_LABELS:
+        return _TOOL_LABELS[tool_name]
+    # Fallback for unknown MCP tools
+    if tool_name.startswith("mcp__fatsecret__"):
+        short = tool_name.removeprefix("mcp__fatsecret__fatsecret_").replace("_", " ")
+        return f"🍎 FatSecret: {short}"
+    return f"🔧 {tool_name}"
+
+
+# ── Status message (editable "thinking" indicator) ───────────────────────────
+
+
+class StatusMessage:
+    """Manages a single Telegram message that shows agent activity.
+
+    - Created with "thinking" text on enter
+    - Updated in-place when tools are called
+    - Deleted when the agent finishes (on exit / close)
+    """
+
+    THINKING = "💭 Думаю..."
+
+    def __init__(self, bot: Bot, chat_id: int) -> None:
+        self._bot = bot
+        self._chat_id = chat_id
+        self._message_id: int | None = None
+        self._current_text: str = ""
+        self._lock = asyncio.Lock()
+
+    async def show(self) -> None:
+        """Send the initial status message."""
+        try:
+            msg = await self._bot.send_message(self._chat_id, self.THINKING)
+            self._message_id = msg.message_id
+            self._current_text = self.THINKING
+        except Exception:
+            logger.debug("Failed to send status message", exc_info=True)
+
+    async def update(self, tool_name: str) -> None:
+        """Update status to show which tool is being used."""
+        if not self._message_id:
+            return
+        label = tool_display_name(tool_name)
+        new_text = f"⏳ {label}..."
+        if new_text == self._current_text:
+            return
+        async with self._lock:
+            try:
+                await self._bot.edit_message_text(
+                    new_text, chat_id=self._chat_id, message_id=self._message_id
+                )
+                self._current_text = new_text
+            except Exception:
+                logger.debug("Failed to edit status message", exc_info=True)
+
+    async def close(self) -> None:
+        """Delete the status message when agent is done."""
+        if not self._message_id:
+            return
+        try:
+            await self._bot.delete_message(self._chat_id, self._message_id)
+        except Exception:
+            logger.debug("Failed to delete status message", exc_info=True)
+        self._message_id = None
 
 # ── Markdown table → Unicode box-drawing ──────────────────────────────────
 

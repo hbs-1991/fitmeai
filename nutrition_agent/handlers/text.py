@@ -7,7 +7,7 @@ from aiogram import Bot, Router
 from aiogram.types import Message
 
 from nutrition_agent.agent import NutritionAgent
-from nutrition_agent.handlers.utils import send_long_text
+from nutrition_agent.handlers.utils import StatusMessage, send_long_text
 from nutrition_agent.services.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -38,13 +38,20 @@ async def handle_text(message: Message) -> None:
 
     bot: Bot = message.bot  # type: ignore[assignment]
 
-    await bot.send_chat_action(chat_id=chat_id, action="typing")
+    status = StatusMessage(bot, chat_id)
+    await status.show()
 
     task = asyncio.create_task(
-        _agent.send_text(prompt=message.text, session_id=session_id)
+        _agent.send_text(
+            prompt=message.text,
+            session_id=session_id,
+            on_tool_use=status.update,
+        )
     )
 
     done, pending = await asyncio.wait({task}, timeout=AGENT_TIMEOUT)
+
+    await status.close()
 
     if pending:
         task.cancel()

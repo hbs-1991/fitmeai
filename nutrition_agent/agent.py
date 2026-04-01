@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from collections.abc import Awaitable, Callable
+
 from claude_agent_sdk import (
     ClaudeAgentOptions,
     HookMatcher,
@@ -12,8 +14,12 @@ from claude_agent_sdk import (
     ResultMessage,
     SystemMessage,
     TextBlock,
+    ToolUseBlock,
     query,
 )
+
+# Callback type: receives tool name when agent invokes a tool
+OnToolUse = Callable[[str], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +111,10 @@ class NutritionAgent:
         return {"additionalContext": "\n\n".join(parts)}
 
     async def send_text(
-        self, prompt: str, session_id: str | None = None
+        self,
+        prompt: str,
+        session_id: str | None = None,
+        on_tool_use: OnToolUse | None = None,
     ) -> tuple[str, str | None]:
         """Send text prompt to agent. Returns (response_text, session_id)."""
         mode = "resume" if session_id else "new"
@@ -134,6 +143,11 @@ class NutritionAgent:
                 for block in getattr(message, "content", []):
                     if isinstance(block, TextBlock):
                         result_text += block.text
+                    elif isinstance(block, ToolUseBlock) and on_tool_use:
+                        try:
+                            await on_tool_use(block.name)
+                        except Exception:
+                            logger.debug("on_tool_use callback failed", exc_info=True)
                 logger.debug("SDK msg #%d: AssistantMessage blocks=%d", msg_count, len(getattr(message, "content", [])))
 
             elif isinstance(message, ResultMessage):
@@ -148,7 +162,11 @@ class NutritionAgent:
         return (result_text, new_session_id)
 
     async def send_image(
-        self, image_path: str, text: str, session_id: str | None = None
+        self,
+        image_path: str,
+        text: str,
+        session_id: str | None = None,
+        on_tool_use: OnToolUse | None = None,
     ) -> tuple[str, str | None]:
         """Send image + text to agent. Returns (response_text, session_id)."""
         import base64
@@ -199,6 +217,11 @@ class NutritionAgent:
                 for block in getattr(message, "content", []):
                     if isinstance(block, TextBlock):
                         result_text += block.text
+                    elif isinstance(block, ToolUseBlock) and on_tool_use:
+                        try:
+                            await on_tool_use(block.name)
+                        except Exception:
+                            logger.debug("on_tool_use callback failed", exc_info=True)
 
             elif isinstance(message, ResultMessage):
                 final = getattr(message, "result", None)
