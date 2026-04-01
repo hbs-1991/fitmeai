@@ -53,7 +53,7 @@ async def handle_photo(message: Message) -> None:
     caption = message.caption or ""
 
     # Agent phase — show status message with tool indicators
-    status = StatusMessage(bot, chat_id)
+    status = StatusMessage(bot, chat_id, thread_id)
     await status.show()
 
     try:

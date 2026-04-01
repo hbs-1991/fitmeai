@@ -72,9 +72,10 @@ class StatusMessage:
 
     THINKING = "💭 Думаю..."
 
-    def __init__(self, bot: Bot, chat_id: int) -> None:
+    def __init__(self, bot: Bot, chat_id: int, thread_id: int | None = None) -> None:
         self._bot = bot
         self._chat_id = chat_id
+        self._thread_id = thread_id
         self._message_id: int | None = None
         self._current_text: str = ""
         self._lock = asyncio.Lock()
@@ -82,7 +83,11 @@ class StatusMessage:
     async def show(self) -> None:
         """Send the initial status message."""
         try:
-            msg = await self._bot.send_message(self._chat_id, self.THINKING)
+            msg = await self._bot.send_message(
+                self._chat_id,
+                self.THINKING,
+                message_thread_id=self._thread_id,
+            )
             self._message_id = msg.message_id
             self._current_text = self.THINKING
         except Exception:

@@ -38,7 +38,7 @@ async def handle_text(message: Message) -> None:
 
     bot: Bot = message.bot  # type: ignore[assignment]
 
-    status = StatusMessage(bot, chat_id)
+    status = StatusMessage(bot, chat_id, thread_id)
     await status.show()
 
     task = asyncio.create_task(

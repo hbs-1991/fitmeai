@@ -63,7 +63,7 @@ async def handle_voice(message: Message) -> None:
     # Agent phase — show status message with tool indicators
     session_id = _sessions.get_session(chat_id, thread_id)
 
-    status = StatusMessage(bot, chat_id)
+    status = StatusMessage(bot, chat_id, thread_id)
     await status.show()
 
     task = asyncio.create_task(
