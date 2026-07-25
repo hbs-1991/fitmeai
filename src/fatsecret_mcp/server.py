@@ -36,8 +36,11 @@ def create_server(
     is_valid, error_msg = config.validate()
     if not is_valid:
         raise ConfigurationError(
-            f"Invalid configuration: {error_msg}. "
-            "Please set FATSECRET_CLIENT_ID and FATSECRET_CLIENT_SECRET in .env file."
+            f"Invalid configuration: {error_msg}. Set the application credentials "
+            "from https://platform.fatsecret.com/api — the page labels them Consumer "
+            "Key and Consumer Secret (FATSECRET_CONSUMER_KEY / "
+            "FATSECRET_CONSUMER_SECRET; FATSECRET_CLIENT_ID / FATSECRET_CLIENT_SECRET "
+            "are accepted as aliases)."
         )
 
     logger.info(f"Creating {server_name} MCP Server")

@@ -66,8 +66,13 @@ machine with a browser, not on a headless server.
 uvx --from git+https://github.com/hbs-1991/fitmeai@<sha> fatsecret-mcp
 ```
 
-with `FATSECRET_CLIENT_ID`, `FATSECRET_CLIENT_SECRET`, `FATSECRET_ACCESS_TOKEN`
-and `FATSECRET_ACCESS_SECRET` in the environment. Pin a full 40-character commit
+with `FATSECRET_CONSUMER_KEY`, `FATSECRET_CONSUMER_SECRET`,
+`FATSECRET_ACCESS_TOKEN` and `FATSECRET_ACCESS_SECRET` in the environment.
+
+The platform page labels the app credentials **Consumer Key** and **Consumer
+Secret** — that is the OAuth 1.0 naming. `FATSECRET_CLIENT_ID` and
+`FATSECRET_CLIENT_SECRET` are accepted as aliases and win if both pairs are set,
+so set one pair, not a mix. Pin a full 40-character commit
 sha rather than a branch: a moving ref means the agent silently gets different
 code one day.
 

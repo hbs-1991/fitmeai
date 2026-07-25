@@ -48,10 +48,14 @@ class Config:
         Returns:
             Tuple of (is_valid, error_message)
         """
+        # Name BOTH accepted spellings: the FatSecret platform page labels these the
+        # "Consumer Key" and "Consumer Secret", so an operator who set the CONSUMER_*
+        # names and is told only that CLIENT_ID is missing has no way to tell that the
+        # credentials they set were the right ones under a different name.
         if not cls.CLIENT_ID:
-            return False, "FATSECRET_CLIENT_ID is not set"
+            return False, "FATSECRET_CONSUMER_KEY (or FATSECRET_CLIENT_ID) is not set"
         if not cls.CLIENT_SECRET:
-            return False, "FATSECRET_CLIENT_SECRET is not set"
+            return False, "FATSECRET_CONSUMER_SECRET (or FATSECRET_CLIENT_SECRET) is not set"
         return True, None
 
     @classmethod
