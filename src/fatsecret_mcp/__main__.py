@@ -6,7 +6,10 @@ speaks MCP over stdin/stdout. Not a network server: it listens on no port.
 
 from .server import create_server
 from .auth import OAuthManager
-from .utils import get_logger, ConfigurationError, AuthenticationError
+from .utils import get_logger, AuthenticationError
+# create_server raises ConfigurationError; re-exported here so a caller importing the
+# entry point can catch it without reaching into .utils.
+from .utils import ConfigurationError  # noqa: F401
 
 logger = get_logger(__name__)
 
