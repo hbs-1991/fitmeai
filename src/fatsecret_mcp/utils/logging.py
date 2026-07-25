@@ -31,8 +31,9 @@ def setup_logging(
     # Remove existing handlers
     logger.handlers.clear()
 
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
+    # Console handler — stderr, never stdout. The server speaks MCP JSON-RPC over
+    # stdin/stdout, so a log line on stdout is a corrupt frame in the protocol stream.
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(logging.INFO)
     console_format = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
