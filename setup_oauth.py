@@ -8,9 +8,9 @@ Run once: python setup_oauth.py
 """
 
 import sys
-from src.fatsecret_mcp.auth.oauth_manager import run_oauth_flow
-from src.fatsecret_mcp.auth.credentials import check_credentials
-from src.fatsecret_mcp.utils import get_logger, ConfigurationError
+from fatsecret_mcp.auth.oauth_manager import run_oauth_flow
+from fatsecret_mcp.auth.credentials import check_credentials
+from fatsecret_mcp.utils import get_logger, ConfigurationError
 
 logger = get_logger(__name__)
 

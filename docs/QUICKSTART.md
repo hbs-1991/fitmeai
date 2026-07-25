@@ -45,7 +45,7 @@ Save and close.
 For food and recipe search only:
 
 ```bash
-python main_noauth.py
+fatsecret-mcp        # food search only, without a user token
 ```
 
 **What works:**
@@ -75,7 +75,7 @@ Takes ~30 seconds.
 
 **Step 2: Start server**
 ```bash
-python main.py
+fatsecret-mcp        # all four tools, with a user token
 ```
 
 **What works:**
@@ -97,8 +97,8 @@ notepad %APPDATA%\Claude\claude_desktop_config.json
 {
   "mcpServers": {
     "fatsecret": {
-      "command": "python",
-      "args": ["D:\\projects\\fatsecret_mcp\\main.py"]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/hbs-1991/fitmeai@<sha>", "fatsecret-mcp"]
     }
   }
 }
@@ -207,8 +207,7 @@ What's my weight trend this month?
 
 | File | Purpose |
 |------|---------|
-| `main_noauth.py` | Public API server |
-| `main.py` | Authenticated server |
+| `fatsecret-mcp` | Console script (installed by pip/uvx) |
 | `setup_oauth.py` | OAuth setup |
 | `.env` | Your credentials |
 | `docs/` | Documentation |

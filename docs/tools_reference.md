@@ -1,481 +1,171 @@
-# FatSecret MCP Server - Tools Reference
-
-Complete reference for all 20 MCP tools available in the FatSecret server.
+# FatSecret MCP Server — Tools Reference
 
 ## Overview
 
-- **8 Public Tools** (No authentication required)
-- **12 Authenticated Tools** (Require OAuth setup)
-- **Total: 20 Tools**
+Four tools, each dispatching on a required `action` enum. Not twenty thin ones:
+every tool schema lives in the calling model's cached prompt prefix and is paid
+for on every request, whether or not the turn is about food. An action costs one
+enum value; a tool costs a whole schema.
+
+Every tool returns a plain dict, always. On failure it returns
+`{"error": "..."}` rather than raising — an exception crossing the MCP boundary
+reads to a model as an infrastructure failure it cannot fix, while an error
+string reads as something to correct and retry. A missing parameter names *every*
+missing field at once, not the first one, so a model does not spend four round
+trips discovering four required fields.
+
+`fatsecret_food` registers on the application credentials alone.
+`fatsecret_diary`, `fatsecret_exercise` and `fatsecret_weight` register only when
+`FATSECRET_ACCESS_TOKEN` and `FATSECRET_ACCESS_SECRET` are present.
 
 ---
 
-## Public Tools (No Auth Required)
+## `fatsecret_food`
 
-These tools work with `main_noauth.py` and don't require user authorization.
+Look up foods and recipes in the FatSecret database.
 
-### Food Search & Nutrition
+| Action | Requires | Optional |
+|---|---|---|
+| `search` | `query` | `max_results` (20), `page` (0) |
+| `get` | `food_id` | — |
+| `barcode` | `barcode` | — |
+| `create` | `query`, `nutrition` | — |
+| `recipe_search` | `query` | `max_results` (20), `page` (0) |
+| `recipe_get` | `recipe_id` | — |
 
-#### 1. `fatsecret_food_search`
+**`get` is not optional before logging.** The serving list it returns is the only
+place `serving_id` comes from, and a `serving_id` remembered from another food
+belongs to that other food — it produces plausible, wrong numbers.
 
-Search for foods by name.
+**`barcode`** calls FatSecret's real `food.find_id_for_barcode` endpoint and then
+fetches the food. Digits are zero-padded to GTIN-13, so a 12-digit UPC-A or an
+8-digit EAN-8 works as given; without the padding the lookup silently misses a
+product that is actually in the database. A miss returns a clean error, not an
+exception — unbranded and homemade food has no barcode, and the caller should
+fall back to `search` or `create`.
 
-**Parameters:**
-- `query` (string, required): Search query
-- `max_results` (int, optional): Max results (default: 50)
-- `page` (int, optional): Page number (default: 0)
+**`create`** takes `nutrition` as an object with `serving_size`, `calories`,
+`fat`, `carbohydrate` and `protein`. Optionally inside the same object:
+`brand_name` (defaults to `"Homemade"`), `brand_type` (`manufacturer`,
+`restaurant` or `supermarket`, defaulting to `manufacturer`), and any further
+nutrients the API accepts. Returns `{"food_id": "..."}`.
 
-**Returns:** List of foods with ID, name, brand, description
-
-**Example:**
-```
-Search for "banana"
-```
-
----
-
-#### 2. `fatsecret_food_get`
-
-Get detailed nutrition information for a specific food.
-
-**Parameters:**
-- `food_id` (string, required): Food ID from search
-
-**Returns:** Complete nutrition facts with all serving sizes
-
-**Example:**
-```
-Get nutrition facts for food ID 12345
-```
-
----
-
-#### 3. `fatsecret_food_autocomplete`
-
-Get autocomplete suggestions for food search.
-
-**Parameters:**
-- `query` (string, required): Partial food name
-- `max_results` (int, optional): Max suggestions (default: 10)
-
-**Returns:** List of food name suggestions
-
-**Example:**
-```
-Get suggestions for "chick"
+```python
+fatsecret_food(action="search", query="chicken breast")
+fatsecret_food(action="get", food_id="1641")
+fatsecret_food(action="barcode", barcode="012000161155")
+fatsecret_food(action="create", query="Омлет с сыром",
+               nutrition={"serving_size": "1 порция", "calories": 320,
+                          "fat": 24, "carbohydrate": 3, "protein": 22})
 ```
 
 ---
 
-#### 4. `fatsecret_food_search_v3`
+## `fatsecret_diary`
 
-Advanced food search with filters (same as v2 for now).
+Read, write and summarize the user's food diary.
 
-**Parameters:**
-- `query` (string, required): Search query
-- `max_results` (int, optional): Max results (default: 50)
-- `page` (int, optional): Page number (default: 0)
-- `region` (string, optional): Region code (default: "US")
-- `language` (string, optional): Language code (default: "en")
+| Action | Requires | Optional |
+|---|---|---|
+| `get` | — | `entry_date` (today) |
+| `month` | — | `year`, `month` (current) |
+| `add` | `food_id`, `food_entry_name`, `serving_id`, `meal` | `number_of_units` (1.0), `entry_date` |
+| `edit` | `food_entry_id` | `serving_id`, `number_of_units`, `meal` |
+| `delete` | `food_entry_id` | — |
+| `report` | `start`, `end` | `target_calories` |
 
-**Returns:** List of foods
+`meal` is one of `breakfast`, `lunch`, `dinner`, `other`. There is no `snack`.
 
----
+### `number_of_units` — the one thing that goes wrong
 
-#### 5. `fatsecret_food_barcode_scan`
+Read the serving description returned by `fatsecret_food(action="get", …)`:
 
-Lookup food by barcode (UPC/EAN).
+- **A gram-based serving** (`"100 g"`) means the unit *is one gram*.
+  200 g → `number_of_units=200`. **Not** `200/100 = 2`.
+- **Any other serving** (`"1 cup"`, `"1 breast"`) means `number_of_units` counts
+  those servings. Two cups → `2`. Half a breast → `0.5`.
 
-**Parameters:**
-- `barcode` (string, required): Barcode number
+Dividing grams by the serving size is the single most common logging error.
 
-**Returns:** Food information if found
+### `report`
 
-**Example:**
-```
-Scan barcode 012000161155
-```
+Aggregates `[start, end]` server-side and returns daily rows plus period totals,
+averages and macro ratios — because a week of raw diary JSON is the most
+expensive thing this server could put in a model's context, and summing thirty
+verbose rows token-by-token is arithmetic no model should be doing.
 
----
+Dates are `YYYY-MM-DD`; the range is capped at 92 days; one API call is made per
+*month*, never per day. Passing `target_calories` adds an `off_target_days` list
+naming every day deviating by more than 20%.
 
-#### 6. `fatsecret_recipe_search`
+**Averages divide by days logged, not days in the range.** An unlogged day is
+missing data, not a zero-calorie day, and averaging it in invents a deficit that
+is really just a day the user forgot to log.
 
-Search for recipes by name or ingredients.
-
-**Parameters:**
-- `query` (string, required): Search query
-- `max_results` (int, optional): Max results (default: 50)
-- `page` (int, optional): Page number (default: 0)
-
-**Returns:** List of recipes with name, description, URL, image
-
-**Example:**
-```
-Search for chocolate cake recipes
-```
-
----
-
-#### 7. `fatsecret_recipe_get`
-
-Get detailed recipe information.
-
-**Parameters:**
-- `recipe_id` (string, required): Recipe ID from search
-
-**Returns:** Full recipe with ingredients, directions, nutrition per serving
-
-**Example:**
-```
-Get recipe details for ID 12345
+```python
+fatsecret_diary(action="add", food_id="1641", food_entry_name="Куриная грудка",
+                serving_id="50321", meal="lunch", number_of_units=200)
+fatsecret_diary(action="report", start="2026-07-20", end="2026-07-26",
+                target_calories=2000)
 ```
 
 ---
 
-#### 8. `fatsecret_exercise_search`
+## `fatsecret_exercise`
 
-Search for exercises (public search, no auth).
+Look up exercises and manage the activity log.
 
-**Parameters:**
-- `query` (string, required): Search query
-- `max_results` (int, optional): Max results (default: 50)
+| Action | Requires | Optional |
+|---|---|---|
+| `search` | `query` | `max_results` (20) |
+| `get` | — | `entry_date` (today) |
+| `month` | — | `year`, `month` (current) |
+| `add` | `exercise_id`, `minutes` | `entry_date` |
+| `edit` | `exercise_entry_id`, `minutes` | — |
 
-**Returns:** List of exercises with ID and name
-
-**Example:**
-```
-Search for "running" exercises
-```
-
----
-
-## Authenticated Tools (OAuth Required)
-
-These tools require running `setup_oauth.py` first and using `main.py`.
-
-### Food Diary
-
-#### 9. `fatsecret_diary_get_entries`
-
-Get all food diary entries for a date.
-
-**Parameters:**
-- `entry_date` (string, optional): Date YYYY-MM-DD (default: today)
-
-**Returns:** List of entries with nutritional totals
-
-**Example:**
-```
-Show my food diary for today
-Get my diary entries for 2026-02-01
-```
+FatSecret's day is **fully allocated**: adding an exercise reduces the minutes
+credited to the default resting activity. A logged workout does not simply add
+calories on top of the day.
 
 ---
 
-#### 10. `fatsecret_diary_get_month`
+## `fatsecret_weight`
 
-Get monthly summary of food diary.
+Record and read the user's weight history.
 
-**Parameters:**
-- `year` (int, optional): Year (default: current year)
-- `month` (int, optional): Month 1-12 (default: current month)
-
-**Returns:** Daily totals for entire month
-
-**Example:**
-```
-Show my food diary for February 2026
-```
+| Action | Requires | Optional |
+|---|---|---|
+| `update` | `weight_kg` | `entry_date` (today), `comment` |
+| `month` | — | `year`, `month` (current) |
 
 ---
 
-#### 11. `fatsecret_diary_add_entry`
+## `fatsecret-chart` (console script, not an MCP tool)
 
-Add a food entry to your diary.
+Renders a dated series to a PNG. Reads JSON on stdin, prints the output path.
 
-**Parameters:**
-- `food_id` (string, required): Food ID
-- `serving_id` (string, required): Serving ID
-- `meal` (string, required): "breakfast", "lunch", "dinner", "snack", "other"
-- `number_of_units` (float, optional): Servings (default: 1.0)
-- `entry_date` (string, optional): Date YYYY-MM-DD (default: today)
-
-**Returns:** Entry ID
-
-**Example:**
+```bash
+echo '[{"date":"2026-07-20","value":82.4},{"date":"2026-07-21","value":82.1}]' \
+  | fatsecret-chart --out weight.png --title Weight --ylabel kg
 ```
-Log 2 scrambled eggs for breakfast
-Add 1 banana to my snack diary
-```
+
+It knows nothing about FatSecret: no API client, no config, no environment, no
+network. It is reachable from an agent's shell, and everything reachable from a
+shell is assumed readable by the agent — so it is given nothing worth reading.
+Requires the `chart` extra (`pip install ".[chart]"`).
 
 ---
 
-#### 12. `fatsecret_diary_edit_entry`
-
-Edit an existing diary entry.
-
-**Parameters:**
-- `food_entry_id` (string, required): Entry ID to edit
-- `serving_id` (string, optional): New serving ID
-- `number_of_units` (float, optional): New serving size
-- `meal` (string, optional): New meal
-
-**Returns:** Success confirmation
-
-**Example:**
-```
-Change entry 12345 to 2.5 servings
-Move entry 12345 to lunch
-```
-
----
-
-#### 13. `fatsecret_diary_delete_entry`
-
-Delete a food diary entry.
-
-**Parameters:**
-- `food_entry_id` (string, required): Entry ID to delete
-
-**Returns:** Success confirmation
-
-**Example:**
-```
-Delete diary entry 12345
-```
-
----
-
-### Exercise Tracking
-
-#### 14. `fatsecret_exercise_get_entries`
-
-Get exercise entries for a date.
-
-**Parameters:**
-- `entry_date` (string, optional): Date YYYY-MM-DD (default: today)
-
-**Returns:** List of exercises with duration and calories burned
-
-**Example:**
-```
-Show my exercises for today
-```
-
----
-
-#### 15. `fatsecret_exercise_get_month`
-
-Get monthly exercise summary.
-
-**Parameters:**
-- `year` (int, optional): Year (default: current year)
-- `month` (int, optional): Month 1-12 (default: current month)
-
-**Returns:** Daily exercise totals
-
-**Example:**
-```
-Show my exercise history for this month
-```
-
----
-
-#### 16. `fatsecret_exercise_add_entry`
-
-Log an exercise activity.
-
-**Parameters:**
-- `exercise_id` (string, required): Exercise ID
-- `minutes` (float, required): Duration in minutes
-- `entry_date` (string, optional): Date YYYY-MM-DD (default: today)
-
-**Returns:** Entry ID
-
-**Example:**
-```
-Log 30 minutes of running
-Add 45 minutes of swimming to my exercise log
-```
-
----
-
-#### 17. `fatsecret_exercise_edit_entry`
-
-Edit an exercise entry.
-
-**Parameters:**
-- `exercise_entry_id` (string, required): Entry ID to edit
-- `minutes` (float, required): New duration
-
-**Returns:** Success confirmation
-
-**Example:**
-```
-Change exercise entry 12345 to 45 minutes
-```
-
----
-
-### Weight Management
-
-#### 18. `fatsecret_weight_update`
-
-Record your weight for a date.
-
-**Parameters:**
-- `weight_kg` (float, required): Weight in kilograms
-- `entry_date` (string, optional): Date YYYY-MM-DD (default: today)
-- `comment` (string, optional): Note/comment
-
-**Returns:** Success confirmation
-
-**Example:**
-```
-Record my weight as 70.5 kg
-Log my weight as 72 kg with comment "morning weight"
-```
-
-**Conversion:** 1 kg = 2.205 lbs
-
----
-
-#### 19. `fatsecret_weight_get_month`
-
-Get monthly weight history.
-
-**Parameters:**
-- `year` (int, optional): Year (default: current year)
-- `month` (int, optional): Month 1-12 (default: current month)
-
-**Returns:** List of weight entries with dates and comments
-
-**Example:**
-```
-Show my weight history for this month
-What was my weight trend in January?
-```
-
----
-
-## Common Workflows
-
-### 1. Track a Meal
-
-```
-1. Search for food: "scrambled eggs"
-2. Get nutrition: food ID from search
-3. Add to diary: food ID + serving ID + meal + servings
-4. View diary: check today's totals
-```
-
-**Example conversation:**
-```
-User: "Log 2 scrambled eggs for breakfast"
-→ fatsecret_food_search("scrambled eggs")
-→ fatsecret_food_get(food_id)
-→ fatsecret_diary_add_entry(food_id, serving_id, "breakfast", 2.0)
-→ fatsecret_diary_get_entries() to confirm
-```
-
----
-
-### 2. Track Exercise
-
-```
-1. Search exercise: "running"
-2. Log activity: exercise ID + duration
-3. View totals: check calories burned
-```
-
-**Example conversation:**
-```
-User: "I went running for 30 minutes"
-→ fatsecret_exercise_search("running")
-→ fatsecret_exercise_add_entry(exercise_id, 30.0)
-→ fatsecret_exercise_get_entries() to confirm
-```
-
----
-
-### 3. Track Weight Progress
-
-```
-1. Record weight: weight in kg
-2. View history: monthly trends
-3. Calculate change: compare dates
-```
-
-**Example conversation:**
-```
-User: "My weight today is 70.5 kg"
-→ fatsecret_weight_update(70.5)
-
-User: "Show my weight trend this month"
-→ fatsecret_weight_get_month()
-→ Calculate: first_weight - last_weight
-```
-
----
-
-### 4. Find Recipes
-
-```
-1. Search recipes: by name or ingredient
-2. Get details: recipe ID
-3. View nutrition: calories per serving
-```
-
-**Example conversation:**
-```
-User: "Find me a healthy chocolate cake recipe"
-→ fatsecret_recipe_search("healthy chocolate cake")
-→ fatsecret_recipe_get(recipe_id)
-→ Display: nutrition, ingredients, directions
-```
-
----
-
-## Error Handling
-
-All tools return error messages in this format:
-
-```json
-{
-  "error": "Error message here"
-}
-```
-
-**Common errors:**
-- "Query cannot be empty" - Missing required parameter
-- "Invalid meal" - Meal must be breakfast/lunch/dinner/snack/other
-- "Minutes must be positive" - Exercise duration must be > 0
-- "Weight must be positive" - Weight must be > 0
-- "No valid access token" - Need to run setup_oauth.py
-
-## Rate Limits
-
-FatSecret API has rate limits:
-- **Free tier**: 500 calls/day
-- **Paid tier**: Higher limits available
-
-The server automatically handles:
-- Token refresh
-- Exponential backoff (coming in Phase 5)
-- Request caching (coming in Phase 5)
-
-## Tips
-
-1. **Search before adding**: Always search for food first to get the correct ID
-2. **Check servings**: Foods often have multiple serving sizes
-3. **Use autocomplete**: Get spelling suggestions before full search
-4. **Track consistently**: Log meals daily for accurate totals
-5. **Monitor trends**: Use monthly views to track progress
-6. **Barcode scanning**: Works best with packaged/branded products
-7. **Exercise calories**: Automatically calculated based on your profile
-8. **Weight units**: API uses kg, convert from lbs if needed (lbs / 2.205)
-
-## Support
-
-- API Documentation: https://platform.fatsecret.com/api
-- Report Issues: https://github.com/yourusername/fatsecret-mcp/issues
+## Common workflows
+
+**Log a meal.** `food(action="search")` → `food(action="get")` to read the
+serving list → confirm the resulting calories and macros with the user →
+`diary(action="add")` → `diary(action="get")` to verify it landed under the
+intended meal with the calories that were quoted. The `add` call returning a
+`food_entry_id` is not verification.
+
+**Report on a week.** `diary(action="report", start=…, end=…, target_calories=…)`
+returns finished arithmetic. Format it; do not recompute it.
+
+**Chart the weight trend.** `weight(action="month")` → reshape to
+`[{"date": …, "value": …}]` → pipe to `fatsecret-chart`.

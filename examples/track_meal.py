@@ -9,13 +9,11 @@ import sys
 import os
 from datetime import date
 
-# Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.fatsecret_mcp.auth import OAuthManager
-from src.fatsecret_mcp.api.base_client import FatSecretClient
-from src.fatsecret_mcp.api.foods import FoodsAPI
-from src.fatsecret_mcp.api.food_diary import FoodDiaryAPI
+from fatsecret_mcp.auth import OAuthManager
+from fatsecret_mcp.api.base_client import FatSecretClient
+from fatsecret_mcp.api.foods import FoodsAPI
+from fatsecret_mcp.api.food_diary import FoodDiaryAPI
 
 
 def main():

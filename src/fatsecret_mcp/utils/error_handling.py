@@ -40,3 +40,16 @@ class TokenError(AuthenticationError):
     """Raised when token operations fail."""
 
     pass
+
+
+class ActionError(FatSecretError):
+    """A bad action name or a missing parameter — the caller's mistake, correctable.
+
+    Lives here rather than in tools/dispatch.py so that report.py can raise it
+    without importing the tools package: tools/__init__ eagerly imports diary.py,
+    which imports report.py, and that cycle breaks whenever report is imported
+    first. tools.dispatch re-exports it, so `from ...tools.dispatch import
+    ActionError` keeps working.
+    """
+
+    pass

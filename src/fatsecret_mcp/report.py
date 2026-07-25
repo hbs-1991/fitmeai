@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from .tools.dispatch import ActionError
+from .utils import ActionError
 
 MAX_RANGE_DAYS = 92
 DEVIATION_THRESHOLD_PCT = 20.0

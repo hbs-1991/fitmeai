@@ -35,7 +35,7 @@ FATSECRET_CLIENT_SECRET=your_client_secret
 
 **Start server:**
 ```bash
-python main_noauth.py
+fatsecret-mcp        # food search only, without a user token
 ```
 
 ---
@@ -75,7 +75,7 @@ python setup_oauth.py
 
 2. **Runtime (Every server start)**
    ```
-   main.py starts
+   fatsecret-mcp starts
    ↓
    Loads tokens from Windows Credential Manager
    ↓
@@ -120,7 +120,7 @@ oauth.clear_tokens()
 
 **Start server:**
 ```bash
-python main.py
+fatsecret-mcp        # all four tools, with a user token
 ```
 
 ## OAuth Flow Details
@@ -340,7 +340,7 @@ user runs setup_oauth.py
 → done ✅
 
 [Runtime Phase - Every Server Start]
-main.py starts
+fatsecret-mcp starts
 → load tokens from keyring
 → check expiry
 → if expired: refresh automatically

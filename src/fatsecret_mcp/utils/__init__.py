@@ -1,7 +1,14 @@
 """Utility modules for FatSecret MCP Server."""
 
 from .logging import setup_logging, get_logger
-from .error_handling import FatSecretError, AuthenticationError, APIError, ConfigurationError, TokenError
+from .error_handling import (
+    FatSecretError,
+    AuthenticationError,
+    APIError,
+    ConfigurationError,
+    TokenError,
+    ActionError,
+)
 
 __all__ = [
     "setup_logging",
@@ -11,4 +18,5 @@ __all__ = [
     "APIError",
     "ConfigurationError",
     "TokenError",
+    "ActionError",
 ]

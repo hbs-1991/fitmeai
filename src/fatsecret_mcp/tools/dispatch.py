@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import functools
 
-from ..utils import get_logger, APIError
+from ..utils import get_logger, APIError, ActionError
 
 logger = get_logger(__name__)
 
-
-class ActionError(Exception):
-    """A bad action name or a missing parameter — the caller's mistake, correctable."""
+# ActionError is defined in ..utils, not here, so that report.py can raise it without
+# importing this package — tools/__init__ pulls in diary.py, which imports report.py.
+# Re-exported because this is where callers and tests reasonably look for it.
+__all__ = ["ActionError", "require", "unknown", "guard"]
 
 
 def require(params: dict, action: str, *names: str) -> tuple:

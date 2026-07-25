@@ -7,11 +7,9 @@ This example demonstrates how to search for foods and retrieve nutrition informa
 import sys
 import os
 
-# Add parent directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.fatsecret_mcp.api.base_client import FatSecretClient
-from src.fatsecret_mcp.api.foods import FoodsAPI
+from fatsecret_mcp.api.base_client import FatSecretClient
+from fatsecret_mcp.api.foods import FoodsAPI
 
 
 def main():

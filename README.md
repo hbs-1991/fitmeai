@@ -1,31 +1,32 @@
 # FatSecret MCP Server
 
-A comprehensive Model Context Protocol (MCP) server for the FatSecret Platform API, enabling AI agents to access nutrition tracking capabilities including food search, diary management, exercise tracking, and weight monitoring.
+A Model Context Protocol (MCP) server for the FatSecret Platform API, giving an AI
+agent food and recipe lookup, a food diary, an exercise log and weight history —
+as four action-dispatch tools rather than twenty thin ones.
 
 ## Features
 
-- 🔍 **Food Search**: Search foods, get nutrition facts, barcode scanning
-- 📖 **Food Diary**: Track meals and daily nutrition
+- 🔍 **Food Search**: Search foods and recipes, get nutrition facts, real GTIN/UPC barcode lookup
+- 📖 **Food Diary**: Track meals, and aggregate a date range into one server-side report
 - 🏃 **Exercise Tracking**: Log workouts and calories burned
 - ⚖️ **Weight Management**: Track weight over time
-- 🍽️ **Saved Meals**: Create and manage meal templates
-- 👤 **User Favorites**: Manage favorite foods and recipes
+- 📈 **Charting**: A credential-free `fatsecret-chart` script, JSON in, PNG out
 
 ## Quick Start
 
 ### 1. Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/fatsecret-mcp.git
-cd fatsecret-mcp
+To run it, you do not need to install anything — see [Running it](#running-it)
+below, which launches it straight from git with `uvx`. To work on it:
 
-# Create virtual environment
+```bash
+git clone https://github.com/hbs-1991/fitmeai.git
+cd fitmeai
+
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -e .
+pip install -e ".[chart,dev]"
 ```
 
 ### 2. Get FatSecret API Credentials
@@ -45,68 +46,63 @@ cp .env.example .env
 # FATSECRET_CLIENT_SECRET=your_client_secret
 ```
 
-### 4. Run the Server
+### 4. Authorize user-level access (one-time)
 
-**Option A: Public API Only (No Authentication)**
-
-For food and recipe search without user-specific features:
-
-```bash
-python main_noauth.py
-```
-
-**Option B: Full Features (With Authentication)**
-
-For diary, exercise, and weight tracking:
+Food search works on the application credentials alone. The diary, exercise and
+weight tools need a user access token, which comes from a three-legged OAuth 1.0
+flow that opens a browser and listens on `localhost:8080`:
 
 ```bash
-# First, setup OAuth (one-time)
 python setup_oauth.py
-
-# Then start the server
-python main.py
 ```
 
-### 5. Configure Claude Desktop
+Record the resulting `FATSECRET_ACCESS_TOKEN` and `FATSECRET_ACCESS_SECRET`.
+OAuth 1.0 tokens do not expire, so this happens once — and it must happen on a
+machine with a browser, not on a headless server.
 
-Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+## Running it
 
-```json
-{
-  "mcpServers": {
-    "fatsecret": {
-      "command": "python",
-      "args": ["D:\\path\\to\\fatsecret_mcp\\main.py"]
-    }
-  }
-}
+```bash
+uvx --from git+https://github.com/hbs-1991/fitmeai@<sha> fatsecret-mcp
 ```
+
+with `FATSECRET_CLIENT_ID`, `FATSECRET_CLIENT_SECRET`, `FATSECRET_ACCESS_TOKEN`
+and `FATSECRET_ACCESS_SECRET` in the environment. Pin a full 40-character commit
+sha rather than a branch: a moving ref means the agent silently gets different
+code one day.
+
+The server speaks MCP over stdin/stdout and listens on no port. Any MCP client
+can launch it; the shape above is what the `fatsecret` catalog entry in
+[claude-hermes](https://github.com/hbs-1991/claude-hermes) uses.
 
 ## Available Tools
 
-### Food Search (Public - No Auth Required)
-- `fatsecret_food_search` - Search foods by name
-- `fatsecret_food_get` - Get detailed nutrition information
-- `fatsecret_food_search_v3` - Advanced food search with filters
-- `fatsecret_food_autocomplete` - Get autocomplete suggestions
-- `fatsecret_food_barcode_scan` - Lookup food by barcode
+Four action-dispatch tools. `fatsecret_food` works on app credentials alone; the
+other three appear only when a user access token is present.
 
-### Food Diary (Authentication Required)
-- `fatsecret_diary_get_entries` - Get all diary entries for date
-- `fatsecret_diary_get_month` - Get monthly summary
-- `fatsecret_diary_add_entry` - Add food to diary
-- `fatsecret_diary_edit_entry` - Edit existing entry
-- `fatsecret_diary_delete_entry` - Remove diary entry
+| Tool | Actions |
+|---|---|
+| `fatsecret_food` | `search`, `get`, `barcode`, `create`, `recipe_search`, `recipe_get` |
+| `fatsecret_diary` | `get`, `month`, `add`, `edit`, `delete`, `report` |
+| `fatsecret_exercise` | `search`, `get`, `month`, `add`, `edit` |
+| `fatsecret_weight` | `update`, `month` |
 
-### Exercise Tracking (Authentication Required)
-- `fatsecret_exercise_search` - Search exercises
-- `fatsecret_exercise_get_entries` - Get exercise entries for date
-- `fatsecret_exercise_add_entry` - Log exercise
-- `fatsecret_exercise_edit_entry` - Edit exercise entry
+Four rather than twenty, each dispatching on a required `action` enum: every tool
+schema lives in the calling model's cached prompt prefix and is paid for on every
+request, whether or not the turn is about food. An action costs one enum value; a
+tool costs a whole schema.
 
-### Weight Management (Authentication Required)
-- `fatsecret_weight_update` - Update weight for date
-- `fatsecret_weight_get_month` - Get monthly weight history
+`fatsecret_diary(action="report", start=…, end=…)` aggregates a date range
+server-side — daily rows, totals, averages and macro ratios — so a week of meals
+reaches the model as one table rather than thirty rows of JSON.
+
+Plus one console script, `fatsecret-chart`: JSON series on stdin, PNG out, no
+credentials.
+
+```bash
+echo '[{"date":"2026-07-20","value":82.4},{"date":"2026-07-21","value":82.1}]' \
+  | fatsecret-chart --out weight.png --title Weight --ylabel kg
+```
 
 ## Usage Examples
 
@@ -154,11 +150,14 @@ ruff check src/ tests/
 
 ```
 src/fatsecret_mcp/
+├── __main__.py        # Console entry point: `fatsecret-mcp`
 ├── server.py          # FastMCP server setup
+├── report.py          # Server-side period aggregation over the diary
 ├── config.py          # Configuration management
-├── auth/              # OAuth authentication
+├── auth/              # OAuth authentication (keyring optional)
 ├── api/               # FatSecret API clients
-├── tools/             # MCP tool implementations
+├── tools/             # The four action-dispatch tools + dispatch.py
+├── cli/               # fatsecret-chart — JSON in, PNG out, no credentials
 ├── models/            # Pydantic data models
 └── utils/             # Utilities (logging, errors)
 ```

@@ -70,7 +70,7 @@ LOG_LEVEL=INFO
 For food and recipe search without user-specific features:
 
 ```bash
-python main_noauth.py
+fatsecret-mcp        # food search only, without a user token
 ```
 
 **Available features:**
@@ -100,7 +100,7 @@ This will:
 2. Start the authenticated server:
 
 ```bash
-python main.py
+fatsecret-mcp        # all four tools, with a user token
 ```
 
 **Available features:**
@@ -122,29 +122,30 @@ Add the server to your Claude Desktop configuration:
 
 **Configuration:**
 
-For public API mode:
+There is one launch shape, not two. `fatsecret_food` registers on the application
+credentials alone; the diary, exercise and weight tools register only when
+`FATSECRET_ACCESS_TOKEN` and `FATSECRET_ACCESS_SECRET` are also present, so the
+same config covers both modes.
+
 ```json
 {
   "mcpServers": {
     "fatsecret": {
-      "command": "python",
-      "args": ["D:\\path\\to\\fatsecret_mcp\\main_noauth.py"]
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/hbs-1991/fitmeai@<sha>", "fatsecret-mcp"],
+      "env": {
+        "FATSECRET_CLIENT_ID": "…",
+        "FATSECRET_CLIENT_SECRET": "…",
+        "FATSECRET_ACCESS_TOKEN": "…",
+        "FATSECRET_ACCESS_SECRET": "…"
+      }
     }
   }
 }
 ```
 
-For authenticated mode:
-```json
-{
-  "mcpServers": {
-    "fatsecret": {
-      "command": "python",
-      "args": ["D:\\path\\to\\fatsecret_mcp\\main.py"]
-    }
-  }
-}
-```
+Pin a full 40-character commit sha rather than a branch: a moving ref means the
+client silently gets different code one day.
 
 Replace `D:\\path\\to\\fatsecret_mcp` with your actual path.
 
