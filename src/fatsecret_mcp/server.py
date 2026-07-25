@@ -5,10 +5,10 @@ from fastmcp import FastMCP
 
 from .config import config
 from .api.base_client import FatSecretClient
-from .tools.foods_tools import register_food_tools
-from .tools.diary_tools import register_diary_tools
-from .tools.exercise_tools import register_exercise_tools
-from .tools.weight_tools import register_weight_tools
+from .tools.food import register_food_tool
+from .tools.diary import register_diary_tool
+from .tools.exercise import register_exercise_tool
+from .tools.weight import register_weight_tool
 from .utils import setup_logging, get_logger, ConfigurationError
 
 # Setup logging
@@ -49,14 +49,13 @@ def create_server(
     # Create API client
     client = FatSecretClient(access_token=access_token)
 
-    # Register tools
-    register_food_tools(mcp, client)
-
-    # Register authenticated tools if we have an access token
+    # Food lookup works on the app credentials alone; the diary, exercise and weight
+    # tools need a user access token, so they are only registered when one is present.
+    register_food_tool(mcp, client)
     if access_token:
-        register_diary_tools(mcp, client)
-        register_exercise_tools(mcp, client)
-        register_weight_tools(mcp, client)
+        register_diary_tool(mcp, client)
+        register_exercise_tool(mcp, client)
+        register_weight_tool(mcp, client)
         logger.info("Registered authenticated tools (diary, exercise, weight)")
 
     logger.info("FatSecret MCP Server initialized successfully")

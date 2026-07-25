@@ -306,6 +306,17 @@ class FoodsAPI:
         logger.info(f"Created food with ID: {food_id}")
         return food_id
 
+    def find_id_for_barcode(self, barcode: str) -> str | None:
+        """FatSecret's food.find_id_for_barcode. Returns a food_id or None.
+
+        The API requires GTIN-13: a 12-digit UPC-A must be zero-padded, an 8-digit
+        EAN-8 likewise, or the lookup misses a product that is actually there.
+        """
+        gtin = barcode.strip().zfill(13)
+        response = self.client.get("food.find_id_for_barcode", barcode=gtin)
+        food_id = (response.get("food_id") or {}).get("value")
+        return food_id or None
+
     @staticmethod
     def _parse_float(value: Any) -> Optional[float]:
         """Parse value to float, return None if invalid."""
