@@ -1,7 +1,6 @@
 """OAuth 1.0 three-legged authentication manager for FatSecret API."""
 
 import os
-import keyring
 import secrets
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -12,6 +11,11 @@ from requests_oauthlib import OAuth1Session
 
 from ..config import config
 from ..utils import get_logger, AuthenticationError, TokenError
+
+try:
+    import keyring
+except ImportError:  # container install: env vars are the only token source
+    keyring = None
 
 logger = get_logger(__name__)
 
@@ -32,6 +36,9 @@ class OAuthManager:
 
     def store_tokens(self, access_token: str, access_secret: str) -> None:
         """Store OAuth 1.0 access token + secret in keyring."""
+        if keyring is None:
+            raise TokenError("keyring is not installed; install the 'local' extra "
+                             "to run the interactive OAuth setup")
         try:
             keyring.set_password(self.SERVICE_NAME, self.KEY_ACCESS_TOKEN, access_token)
             keyring.set_password(self.SERVICE_NAME, self.KEY_ACCESS_SECRET, access_secret)
@@ -51,6 +58,8 @@ class OAuthManager:
             return token, secret
 
         # Keyring fallback (local dev)
+        if keyring is None:
+            return None, None
         try:
             token = keyring.get_password(self.SERVICE_NAME, self.KEY_ACCESS_TOKEN)
             secret = keyring.get_password(self.SERVICE_NAME, self.KEY_ACCESS_SECRET)
@@ -61,6 +70,8 @@ class OAuthManager:
 
     def clear_tokens(self) -> None:
         """Remove stored tokens from keyring."""
+        if keyring is None:
+            return
         for key in (self.KEY_ACCESS_TOKEN, self.KEY_ACCESS_SECRET):
             try:
                 keyring.delete_password(self.SERVICE_NAME, key)
