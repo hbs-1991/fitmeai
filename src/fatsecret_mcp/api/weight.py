@@ -57,7 +57,7 @@ class WeightAPI:
 
         self.client.post("weight.update", require_auth=True, **params)
 
-        logger.info(f"Updated weight successfully")
+        logger.info("Updated weight successfully")
         return True
 
     def get_month(

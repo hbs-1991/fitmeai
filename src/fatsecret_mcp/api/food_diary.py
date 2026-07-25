@@ -1,7 +1,7 @@
 """Food Diary API client for FatSecret Platform API."""
 
-from typing import Optional, List
-from datetime import date, datetime
+from typing import Optional
+from datetime import date
 from ..utils import get_logger
 from .base_client import FatSecretClient
 from .date_utils import date_to_epoch_days, epoch_days_to_date

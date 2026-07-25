@@ -1,6 +1,6 @@
 """Recipes API client for FatSecret Platform API."""
 
-from typing import Optional, List
+from typing import Optional
 from ..utils import get_logger
 from .base_client import FatSecretClient
 from ..models.recipe import Recipe, RecipeSearchResult

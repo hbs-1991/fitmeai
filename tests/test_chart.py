@@ -8,7 +8,9 @@ import pytest
 
 matplotlib = pytest.importorskip("matplotlib")
 
-from fatsecret_mcp.cli.chart import render
+# Deliberately below importorskip, not at the top: chart.py imports matplotlib at
+# module level, so hoisting this would raise ImportError before the skip can fire.
+from fatsecret_mcp.cli.chart import render  # noqa: E402
 
 SERIES = [{"date": "2026-07-20", "value": 82.4},
           {"date": "2026-07-21", "value": 82.1},

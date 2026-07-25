@@ -6,16 +6,20 @@ class FakeExercise:
         self.calls = []
 
     def search(self, search_expression, max_results=50):
-        self.calls.append(("search", search_expression)); return {"exercises": []}
+        self.calls.append(("search", search_expression))
+        return {"exercises": []}
 
     def get_entries(self, entry_date):
-        self.calls.append(("get_entries", entry_date)); return {"entries": []}
+        self.calls.append(("get_entries", entry_date))
+        return {"entries": []}
 
     def get_month(self, year, month):
-        self.calls.append(("get_month", year, month)); return {"days": []}
+        self.calls.append(("get_month", year, month))
+        return {"days": []}
 
     def add_entry(self, exercise_id, minutes, entry_date=None):
-        self.calls.append(("add_entry", exercise_id, minutes)); return "77"
+        self.calls.append(("add_entry", exercise_id, minutes))
+        return "77"
 
     def edit_entry(self, exercise_entry_id, minutes):
         self.calls.append(("edit_entry", exercise_entry_id, minutes))
@@ -29,7 +33,8 @@ class FakeWeight:
         self.calls.append(("update", weight_kg, entry_date, comment))
 
     def get_month(self, year, month):
-        self.calls.append(("get_month", year, month)); return {"days": []}
+        self.calls.append(("get_month", year, month))
+        return {"days": []}
 
 
 def build_ex(monkeypatch):

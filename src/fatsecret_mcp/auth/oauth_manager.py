@@ -1,7 +1,6 @@
 """OAuth 1.0 three-legged authentication manager for FatSecret API."""
 
 import os
-import secrets
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Optional, Tuple
