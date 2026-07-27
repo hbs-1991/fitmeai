@@ -86,8 +86,11 @@ class WeightAPI:
 
         logger.info(f"Getting weight month: {year}-{month:02d}")
 
+        # See FoodDiaryAPI.get_month: the month is selected by `date` (any day inside
+        # it, days since epoch). year/month are ignored and yield the current month.
         response = self.client.post(
-            "weights.get_month", require_auth=True, year=year, month=month
+            "weights.get_month", require_auth=True,
+            date=date_to_epoch_days(f"{year:04d}-{month:02d}-15"),
         )
 
         # Parse response

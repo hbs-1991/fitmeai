@@ -120,8 +120,13 @@ class FoodDiaryAPI:
 
         logger.info(f"Getting diary month: {year}-{month:02d}")
 
+        # FatSecret selects the month from `date` — any day inside it, as days since
+        # epoch. It does NOT accept year/month: those are ignored without an error and
+        # the reply is the CURRENT month, which looks like real data and is the wrong
+        # month. Mid-month, so no timezone shift can push the marker into a neighbour.
         response = self.client.post(
-            "food_entries.get_month", require_auth=True, year=year, month=month
+            "food_entries.get_month", require_auth=True,
+            date=date_to_epoch_days(f"{year:04d}-{month:02d}-15"),
         )
 
         # Parse response
